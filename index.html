@@ -1,0 +1,2651 @@
+<!-- ================================================================= -->
+<!-- i-CANTEEN - PONDOK PESANTREN IDRISIYYAH (BLOGGER EDITION) -->
+<!-- ================================================================= -->
+
+<!-- CSS Dependencies -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet"/>
+<link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet"/>
+
+<style>
+/*<![CDATA[*/
+  :root {
+    --emerald-dark: #064e3b;
+    --emerald-primary: #059669;
+    --emerald-light: #10b981;
+    --emerald-accent: #a7f3d0;
+    --bg-light: #f0fdf4;
+  }
+
+  /* Reset Style agar Menyatu dengan Tema Blogger */
+  #icanteen-app {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-light);
+    color: #1f2937;
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 10px 0;
+    padding-bottom: 20px;
+  }
+
+  .bg-emerald-dark { background-color: var(--emerald-dark) !important; }
+  .bg-emerald { background-color: var(--emerald-primary) !important; }
+  .text-emerald { color: var(--emerald-primary) !important; }
+  
+  .btn-emerald {
+    background-color: var(--emerald-primary);
+    color: white;
+    border: none;
+  }
+  .btn-emerald:hover {
+    background-color: var(--emerald-dark);
+    color: white;
+  }
+
+  .main-header {
+    background: linear-gradient(135deg, var(--emerald-dark) 0%, #047857 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(4, 120, 87, 0.15);
+  }
+
+  .metric-card {
+    border: none;
+    border-radius: 12px;
+    transition: transform 0.2s ease;
+    background: white;
+  }
+  .metric-card:hover {
+    transform: translateY(-3px);
+  }
+
+  /* Kartu metrik versi ringkas untuk baris bawah di Mode Scan */
+  .metric-card-compact {
+    border: none;
+    border-radius: 10px;
+    background: white;
+    padding: 8px 12px;
+  }
+  .metric-card-compact .mc-label { font-size: 11px; font-weight: 600; color: #64748b; line-height: 1.2; }
+  .metric-card-compact .mc-value { font-size: 1.35rem; font-weight: 700; line-height: 1.3; }
+  .metric-card-clickable { cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  .metric-card-clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.12) !important; }
+
+  /* Kotak kamera dengan tinggi TETAP - video dipaksa mengisi penuh (object-fit: cover)
+     supaya tidak ada perubahan tinggi antara sebelum & sesudah kamera aktif. */
+  .scan-reader-box {
+    width: 100%;
+    height: 220px;
+    background: #0f172a;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  .scan-reader-box video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .scan-status-card {
+    height: 100%;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  }
+
+  /* ============================================================
+     TEMA KIOSK "SCAN SCREEN" v2 - mengikuti desain referensi yang
+     diberikan (bento metric chips, kartu kaca gelap, scanner frame
+     bersudut, kartu status besar). Class-class di bawah ini HANYA
+     dipakai di dalam #view-scanMode (Mode Scan / layar kios), jadi
+     aman - tidak memengaruhi tampilan Dashboard/Data Santri/dll.
+     Catatan penyesuaian dari referensi asli: kartu status hasil
+     scan (sukses/jeda/gagal) TETAP memakai warna latar penuh
+     (bukan kartu putih polos seperti contoh) - ini dipertahankan
+     dari sistem yang sudah berjalan supaya tetap terlihat jelas
+     dari jarak jauh saat kantin ramai, hanya warnanya disamakan
+     dengan palet baru.
+     ============================================================ */
+  :root {
+    --kiosk-bg: #25312b;
+    --kiosk-primary: #003527;
+    --kiosk-secondary: #006c49;
+    --kiosk-secondary-fixed: #6ffbbe;
+    --kiosk-tertiary-fixed-dim: #bdcac1;
+    --kiosk-amber: #f59e0b;
+    --kiosk-crimson: #ef4444;
+    --kiosk-purple: #a855f7;
+    --kiosk-blue: #2563eb;
+  }
+
+  @keyframes pulse-opacity { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+  /* HEADER */
+  .main-header { background: var(--kiosk-primary) !important; }
+  .header-logo-circle {
+    width: 40px; height: 40px; border-radius: 50%; background: #ffffff;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  #btnAdminAccess { background: var(--kiosk-secondary) !important; color: #ffffff !important; }
+  #btnAdminAccess:hover { background: #04543a !important; }
+
+  /* SHELL GELAP - membungkus seluruh layar Mode Scan supaya kontras dengan
+     kartu-kartu putih/kaca di dalamnya, persis seperti referensi. */
+  #view-scanMode.kiosk-fit {
+    background: var(--kiosk-bg);
+    border-radius: 24px;
+    padding: 20px;
+  }
+
+  #genderFilterKios {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+  #genderFilterKios option { color: #111; }
+
+  /* KARTU SESI (glass dark) - versi horizontal untuk kolom kanan yang lebar,
+     jadi ikon/judul/jam, pill status, dan dropdown sesi sejajar dalam satu baris
+     (bukan ditumpuk vertikal) supaya lebih hemat tinggi. */
+  .kiosk-session-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+  }
+  .kiosk-session-icon { font-size: 1.7rem; color: var(--kiosk-secondary-fixed); }
+  .kiosk-session-title { color: #fff; font-weight: 700; font-size: 1.1rem; }
+  .kiosk-session-time { color: var(--kiosk-tertiary-fixed-dim); font-size: .8rem; }
+  .kiosk-session-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(0,108,73,0.2); border: 1px solid var(--kiosk-secondary);
+    color: var(--kiosk-secondary-fixed); border-radius: 999px; padding: 4px 14px;
+    font-size: .85rem; font-weight: 600; white-space: nowrap;
+  }
+  .kiosk-session-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--kiosk-secondary-fixed); animation: pulse-opacity 2s infinite; }
+  .kiosk-session-pill.inactive { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.25); color: #cbd5c9; }
+  .kiosk-session-pill.inactive .dot { background: #cbd5c9; animation: none; }
+
+  /* KAMERA (kartu putih + frame bersudut) */
+  .kiosk-camera-card { background: #fff; border-radius: 20px; padding: 16px; box-shadow: 0 4px 30px rgba(0,0,0,0.15); }
+  .kiosk-camera-title { color: #121c2a; font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; }
+
+  .scanner-frame-v2 { position: relative; }
+  .scanner-frame-v2 .scanner-corner {
+    position: absolute; width: 34px; height: 34px; border-color: var(--kiosk-secondary);
+    border-style: solid; z-index: 6; pointer-events: none;
+  }
+  .scanner-frame-v2 .scanner-corner.top-left { top: 8px; left: 8px; border-width: 3px 0 0 3px; border-radius: 8px 0 0 0; }
+  .scanner-frame-v2 .scanner-corner.top-right { top: 8px; right: 8px; border-width: 3px 3px 0 0; border-radius: 0 8px 0 0; }
+  .scanner-frame-v2 .scanner-corner.bottom-left { bottom: 8px; left: 8px; border-width: 0 0 3px 3px; border-radius: 0 0 0 8px; }
+  .scanner-frame-v2 .scanner-corner.bottom-right { bottom: 8px; right: 8px; border-width: 0 3px 3px 0; border-radius: 0 0 8px 0; }
+  .scanner-frame-v2 .scan-line-v2 {
+    position: absolute; left: 0; right: 0; height: 2px; background: var(--kiosk-secondary);
+    box-shadow: 0 0 10px var(--kiosk-secondary); top: 50%; z-index: 5; pointer-events: none;
+    animation: kioskScanLine 2.2s infinite linear alternate;
+  }
+  @keyframes kioskScanLine { 0% { top: 10%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 88%; opacity: 0; } }
+
+  .kiosk-manual-label { color: #cbd5c9; font-size: .78rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+  .kiosk-manual-input-wrap { position: relative; }
+  .kiosk-manual-input-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #64748b; z-index: 2; }
+  .kiosk-manual-input-wrap input { padding-left: 2.4rem; font-family: 'Courier New', monospace; }
+
+  /* METRIC CHIPS (bento) - kini hanya selebar kolom kanan (di atas kartu status), jadi
+     dibuat lebih ringkas dibanding versi selebar layar sebelumnya. */
+  #view-scanMode .metric-card-compact { border-radius: 12px; padding: 8px 10px; }
+  #view-scanMode .metric-card-compact .mc-label { font-size: 9px; text-transform: uppercase; letter-spacing: .03em; font-weight: 700; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #view-scanMode .metric-card-compact .mc-value { font-size: 1.15rem; }
+
+  /* KARTU STATUS UTAMA - tinggi dipangkas (min-height & padding lebih kecil,
+     ikon lebih ringkas) supaya kolom kanan tidak mendorong halaman melebihi
+     1 layar. */
+  .scan-status-card { border-radius: 20px; min-height: 170px !important; }
+  .scan-icon-circle {
+    width: 72px; height: 72px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.06); margin: 0 auto;
+  }
+  .scan-icon-circle i { font-size: 2rem; }
+  .bg-scan-idle { background: #fff; color: #121c2a; border: none; }
+  .bg-scan-idle .scan-icon-circle { background: #e6eeff; color: #404944; }
+  .bg-scan-success { background: linear-gradient(135deg, #0b513d 0%, #006c49 100%); color: #fff; }
+  .bg-scan-success .scan-icon-circle { background: rgba(255,255,255,0.2); color: #fff; }
+  .bg-scan-warning { background: linear-gradient(135deg, #d97706 0%, var(--kiosk-amber) 100%); color: #fff; }
+  .bg-scan-warning .scan-icon-circle { background: rgba(255,255,255,0.2); color: #fff; }
+  .bg-scan-danger { background: linear-gradient(135deg, #b91c1c 0%, var(--kiosk-crimson) 100%); color: #fff; }
+  .bg-scan-danger .scan-icon-circle { background: rgba(255,255,255,0.2); color: #fff; }
+
+  /* BADGE ANTREAN OFFLINE - bar horizontal sesuai referensi */
+  .offline-queue-badge {
+    background: #dee9fc;
+    border: 1px solid rgba(37,99,235,0.3);
+    border-radius: 14px;
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    animation: offlineQueuePulse 1.8s ease-in-out infinite;
+  }
+  .offline-queue-badge .oqb-icon {
+    width: 32px; height: 32px; border-radius: 50%; background: rgba(37,99,235,0.15);
+    display: flex; align-items: center; justify-content: center; color: var(--kiosk-blue); flex-shrink: 0;
+  }
+  .offline-queue-badge .oqb-title { font-size: .85rem; font-weight: 700; color: #121c2a; margin: 0; }
+  .offline-queue-badge .oqb-desc { font-size: .75rem; color: #404944; margin: 0; }
+  .offline-queue-badge .oqb-sync-btn { background: none; border: none; color: var(--kiosk-blue); font-weight: 700; font-size: .8rem; white-space: nowrap; }
+  .offline-queue-badge .oqb-sync-btn:hover { text-decoration: underline; }
+
+  /* Badge antrean offline: muncul saat ada presensi yang belum berhasil terkirim ke
+     server (koneksi putus/lambat) dan sedang menunggu dikirim ulang otomatis. */
+  .offline-queue-badge {
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 10px 16px;
+    border-radius: 14px;
+    text-align: center;
+    box-shadow: 0 6px 16px rgba(37,99,235,0.25);
+    animation: offlineQueuePulse 1.6s ease-in-out infinite;
+  }
+  @keyframes offlineQueuePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  /* Kunci tampilan Mode Scan agar sebisa mungkin muat 1 layar tanpa scroll.
+     overflow-y tetap "auto" (bukan hidden) sebagai jaring pengaman - kalau layar
+     benar-benar terlalu pendek, tetap bisa discroll sedikit alih-alih memotong info. */
+  #view-scanMode.kiosk-fit {
+    min-height: calc(100vh - 110px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow-y: auto;
+  }
+
+  .admin-sidebar {
+    background: white;
+    border-right: 1px solid #e2e8f0;
+    border-radius: 12px;
+  }
+
+  .admin-sidebar .nav-link {
+    color: #475569;
+    font-weight: 500;
+    padding: 12px 20px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+  }
+
+  .admin-sidebar .nav-link.active {
+    background-color: var(--kiosk-secondary) !important;
+    color: white !important;
+  }
+
+  /* Variabel tema kartu - default (emerald), diganti via class pada .card-canvas (dipakai baik
+     oleh panel preview layar maupun wadah cetak) saat admin memilih Theme Palette, jadi seluruh
+     kartu ikut berubah tanpa render ulang. */
+  .card-canvas { --card-accent: #059669; --card-border: #a7f3d0; --card-header-bg: #f0fdf4; }
+  .card-canvas.theme-dark { --card-accent: #0f3d2e; --card-border: #8fb8a8; --card-header-bg: #e6f0ea; }
+  .card-canvas.theme-light { --card-accent: #475569; --card-border: #cbd5e1; --card-header-bg: #f1f5f9; }
+  #cardPrintHost { display: none; }
+
+  .id-card-cr80 {
+    width: 85.6mm;
+    height: 53.98mm;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 0;
+    background: linear-gradient(135deg, #ffffff 0%, var(--card-header-bg, #f0fdf4) 100%);
+    border: 1px solid var(--card-border, #a7f3d0);
+    position: relative;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .id-card-accent-text { color: var(--card-accent, #059669) !important; }
+  .id-card-header { border-bottom-color: var(--card-border, #a7f3d0) !important; }
+
+  /* SISI BELAKANG - ukuran fisik sama persis dengan sisi depan (CR80), berisi
+     ketentuan penggunaan + tanggal cetak + barcode ulang untuk verifikasi cepat. */
+  .id-card-cr80-back {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #ffffff;
+  }
+  .id-card-back-title {
+    font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    color: var(--card-accent, #059669); border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; margin-bottom: 4px;
+  }
+  .id-card-back-list { margin: 0; padding-left: 11px; font-size: 5.6px; line-height: 1.55; color: #334155; }
+  .id-card-back-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 5.3px; color: #64748b; border-top: 1px solid #e2e8f0; margin-top: 4px; padding-top: 3px;
+  }
+  .id-card-back-footer svg { height: 14px; }
+
+  /* PASANGAN DEPAN + BELAKANG - satu baris per santri, baik di layar preview
+     maupun saat dicetak, supaya admin langsung melihat & mencetak keduanya sekaligus. */
+  .id-card-pair {
+    display: flex;
+    gap: 6mm;
+    align-items: flex-start;
+    justify-content: center;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Toggle tampilan dari panel Konfigurasi Desain */
+  .hide-asrama .card-asrama-line { display: none !important; }
+  .hide-back .id-card-cr80-back { display: none !important; }
+
+  /* Saat sisi belakang disembunyikan, tiap "pasangan" hanya berisi kartu depan (85.6mm) -
+     jauh lebih sempit dari lebar kertas/panel, jadi disusun BERJAJAR kiri-kanan (wrap)
+     memenuhi ruang, bukan ditumpuk 1 kolom di tengah seperti mode depan+belakang. */
+  .card-canvas.hide-back {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .card-canvas.hide-back .id-card-pair { width: 85.6mm; }
+
+  .card-theme-swatch {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent;
+    cursor: pointer; padding: 0;
+  }
+  .card-theme-swatch[data-theme="emerald"] { background: linear-gradient(135deg,#10b981,#047857); }
+  .card-theme-swatch[data-theme="dark"] { background: linear-gradient(135deg,#134e3a,#0a2820); }
+  .card-theme-swatch[data-theme="light"] { background: linear-gradient(135deg,#e2e8f0,#94a3b8); }
+  .card-theme-swatch.active { border-color: #059669; box-shadow: 0 0 0 2px rgba(5,150,105,.25); }
+
+  @media print {
+    /* Kertas A4 dengan margin aman untuk printer rumahan/kantor */
+    @page {
+      size: A4;
+      margin: 10mm;
+    }
+
+    body * { visibility: hidden; }
+    #cardPrintHost, #cardPrintHost * { visibility: visible; }
+
+    /* PENTING: #cardPrintHost adalah SIBLING dari #icanteen-app (lihat markup di bawah),
+       bukan bersarang di dalam panel preview yang punya overflow/scroll - jadi hasil cetak
+       tidak ikut terkena aturan overflow/max-height milik panel tersebut.
+       Satu baris = kartu DEPAN + BELAKANG milik 1 santri yang sama (sejajar), dan beberapa
+       baris (beberapa santri) disusun ke bawah dalam 1 halaman - pas untuk printer
+       rumahan/kantor biasa, bukan printer kartu ID khusus yang mencetak 1 kartu per lembar. */
+    #cardPrintHost {
+      display: flex !important;
+      flex-direction: column;
+      align-items: center;
+      gap: 6mm;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+    }
+
+    .id-card-pair { margin: 0; }
+
+    /* Override di atas (kolom tunggal) khusus untuk mode depan+belakang. Saat mode
+       "hanya depan" aktif, selector ini lebih spesifik (#id + class) sehingga menang dan
+       kartu disusun berjajar kiri-kanan memenuhi lebar kertas A4. */
+    #cardPrintHost.hide-back {
+      flex-direction: row !important;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6mm;
+    }
+    #cardPrintHost.hide-back .id-card-pair { width: 85.6mm; margin: 0; }
+  }
+/*]]>*/
+</style>
+
+<div id="icanteen-app">
+  <!-- HEADER -->
+  <header class="main-header px-4 py-2 d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-2">
+      <div class="header-logo-circle">
+        <i class="bi bi-shop fs-6 text-emerald"></i>
+      </div>
+      <div>
+        <h6 class="m-0 fw-bold text-white">Pondok Pesantren Idrisiyyah</h6>
+        <small class="text-emerald-accent header-subtitle" style="font-size:11px;">i-Canteen - Sistem Presensi Makan Santri</small>
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-3">
+      <div class="text-end d-none d-md-block border-end pe-3 border-emerald-light">
+        <div class="fw-bold text-white" id="clockDisplay" style="font-size:1rem; line-height:1.2;"><i class="bi bi-clock me-1"></i><span id="clockDisplayText">--:--:-- WIB</span></div>
+        <small class="text-emerald-accent" id="dateDisplay" style="font-size:11px;">---, -- --- ----</small>
+      </div>
+
+      <button class="btn btn-sm fw-bold rounded-pill px-3" id="btnAdminAccess" type="button">
+        <span id="lblAdminAccess">Admin Area</span> <i class="bi bi-chevron-right ms-1"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- WORKSPACE CONTAINER -->
+  <div class="container-fluid mt-2">
+    <div class="row">
+
+      <!-- SIDEBAR ADMIN -->
+      <nav id="adminSidebar" class="col-md-3 col-lg-2 admin-sidebar p-3 d-none">
+        <div class="text-uppercase text-muted fw-bold small px-3 mb-2">Menu Admin</div>
+        <ul class="nav nav-pills flex-column">
+          <li class="nav-item">
+            <a href="#" class="nav-link nav-menu-btn active" data-view="scanMode"><i class="bi bi-qr-code-scan me-2"></i> Mode Scan</a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link nav-menu-btn" data-view="dashboard"><i class="bi bi-speedometer2 me-2"></i> Dashboard</a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link nav-menu-btn" data-view="santri"><i class="bi bi-people me-2"></i> Data Santri</a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link nav-menu-btn" data-view="cards"><i class="bi bi-card-heading me-2"></i> Cetak Kartu</a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link nav-menu-btn" data-view="reports"><i class="bi bi-file-earmark-bar-graph me-2"></i> Laporan</a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link nav-menu-btn" data-view="settings"><i class="bi bi-gear me-2"></i> Pengaturan</a>
+          </li>
+        </ul>
+        <hr/>
+        <button class="btn btn-outline-danger w-100 rounded-pill" id="btnLogoutAdmin" type="button">
+          <i class="bi bi-box-arrow-right me-1"></i> Keluar Admin
+        </button>
+      </nav>
+
+      <!-- MAIN CONTENT -->
+      <main id="mainContentArea" class="col-12 px-md-3">
+
+       <!-- VIEW 1: MODE SCAN -->
+        <section id="view-scanMode" class="view-section kiosk-fit">
+          <!-- AREA UTAMA (KAMERA SEBELAH STATUS SCAN) -->
+          <div class="row g-2 align-items-stretch">
+
+            <!-- KOLOM KIRI (HANYA KAMERA + INPUT USB) -->
+            <div class="col-lg-5 d-flex flex-column gap-1">
+              <div class="kiosk-camera-card flex-grow-1 d-flex flex-column">
+                <h3 class="kiosk-camera-title"><i class="bi bi-camera-video me-2"></i>Kamera Kiosk</h3>
+                <div class="position-relative flex-grow-1 scanner-frame-v2">
+                  <div id="reader" class="scan-reader-box h-100 rounded-4 overflow-hidden"></div>
+                  <span class="scanner-corner top-left"></span>
+                  <span class="scanner-corner top-right"></span>
+                  <span class="scanner-corner bottom-left"></span>
+                  <span class="scanner-corner bottom-right"></span>
+                  <div class="scan-line-v2"></div>
+                  <button type="button" id="btnSwitchCamera" class="btn btn-sm btn-light rounded-circle shadow d-none"
+                          style="position:absolute; top:16px; right:16px; width:34px; height:34px; padding:0; z-index:7;"
+                          title="Ganti Kamera Depan/Belakang">
+                    <i class="bi bi-arrow-repeat"></i>
+                  </button>
+                </div>
+
+                <div class="mt-3 pt-3 border-top">
+                  <label class="kiosk-manual-label d-block mb-1" style="color:#64748b;">Input Manual (USB Scanner / Keyboard)</label>
+                  <div class="kiosk-manual-input-wrap">
+                    <i class="bi bi-upc-scan"></i>
+                    <input type="text" id="hidInput" class="form-control form-control-sm rounded-3" placeholder="Tap di sini, lalu scan barcode..."/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- KOLOM KANAN (SESI, METRIK, STATUS SCAN & INFO SANTRI) -->
+            <div class="col-lg-7 d-flex flex-column gap-2">
+
+              <!-- STATUS SESI AKTIF - horizontal karena kolom kanan cukup lebar,
+                   jadi ikon/judul/jam, pill status, dan dropdown sesi sejajar
+                   dalam satu baris (bukan ditumpuk vertikal). -->
+              <div class="kiosk-session-card p-2 px-3">
+                <div class="d-flex align-items-center flex-wrap gap-3">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-egg-fried kiosk-session-icon"></i>
+                    <div>
+                      <h3 id="sesiLabelText" class="kiosk-session-title mb-0">Sarapan Pagi</h3>
+                      <p id="sesiTimeText" class="kiosk-session-time mb-0">-- : -- - -- : --</p>
+                    </div>
+                  </div>
+                  <span id="sesiStatusPill" class="kiosk-session-pill inactive">
+                    <span class="dot"></span> <span id="sesiStatusText">Checking Jam Sistem...</span>
+                  </span>
+                  <div class="flex-grow-1" style="min-width:180px;">
+                    <select id="scanSessionSelect" class="form-select form-select-sm rounded-2">
+                      <option value="pagi">Sarapan Pagi</option>
+                      <option value="siang">Makan Siang</option>
+                      <option value="malam">Makan Malam</option>
+                    </select>
+                  </div>
+                </div>
+                <small class="d-block mt-1" style="font-size:9px; color:#bdcac1;">Scan akan tercatat sesuai sesi ini. Otomatis terpilih sesuai jam, tapi bisa diganti manual (mis. makan di luar jadwal).</small>
+              </div>
+
+              <!-- FILTER GENDER (khusus untuk kartu metrik - berguna kalau tablet ini dipakai
+                   bersama untuk kantin putra & putri; pilihan disimpan per-tablet, jadi tidak
+                   perlu diatur ulang tiap kali dibuka) -->
+              <div class="d-flex justify-content-end">
+                <div style="max-width:200px;">
+                  <select id="genderFilterKios" class="form-select form-select-sm rounded-3">
+                    <option value="">Semua Santri</option>
+                    <option value="L">Santri Putra</option>
+                    <option value="P">Santri Putri</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- METRIC CARDS - hanya di atas kartu status (bukan lagi selebar layar) -->
+              <div class="row row-cols-3 row-cols-xl-6 g-2">
+                <div class="col">
+                  <div class="card metric-card-compact border-start border-4 shadow-sm metric-card-clickable" style="border-color:#64748b !important;" onclick="showDashboardDetail('total', 'Total Santri')">
+                    <div class="mc-label">Total Santri</div>
+                    <div class="mc-value text-dark" id="mbTotalSantri">0</div>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="card metric-card-compact border-start border-4 border-warning shadow-sm metric-card-clickable" onclick="showDashboardDetail('puasa', 'Santri Puasa')">
+                    <div class="mc-label">Puasa</div>
+                    <div class="mc-value text-warning" id="mbSantriPuasa">0</div>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="card metric-card-compact border-start border-4 shadow-sm metric-card-clickable" style="border-color:#006c49 !important;" onclick="showDashboardDetail('sudahMakan', 'Sudah Makan')">
+                    <div class="mc-label">Sudah Makan</div>
+                    <div class="mc-value text-emerald" id="mbSudahMakan">0</div>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="card metric-card-compact border-start border-4 metric-card-clickable" style="border-color:#a855f7 !important;" onclick="showDashboardDetail('nambah2x', 'Makan 2x (Nambah)')">
+                    <div class="mc-label">Nambah</div>
+                    <div class="mc-value" style="color:#a855f7;" id="mbNambah2x">0</div>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="card metric-card-compact border-start border-4 shadow-sm metric-card-clickable" style="border-color:#ef4444 !important;" onclick="showDashboardDetail('belumMakan', 'Belum Makan')">
+                    <div class="mc-label">Belum Makan</div>
+                    <div class="mc-value" style="color:#ef4444;" id="mbBelumMakan">0</div>
+                  </div>
+                </div>
+                <div class="col">
+                  <div class="card metric-card-compact border-start border-4 border-info shadow-sm metric-card-clickable" onclick="showDashboardDetail('sudahMakan', 'Kehadiran (Sudah Makan)')">
+                    <div class="mc-label">Kehadiran</div>
+                    <div class="mc-value text-info" id="mbPersentase">0%</div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="scanStatusCard" class="scan-status-card bg-scan-idle p-3 text-center w-100 d-flex align-items-center justify-content-center rounded-4 shadow-sm flex-grow-1">
+                <div id="scanStatusContent">
+                  <div class="scan-icon-circle mb-2"><i class="bi bi-qr-code-scan"></i></div>
+                  <h2 class="mt-1 fw-bold" style="font-size:1.4rem;">SILAKAN SCAN KARTU</h2>
+                  <p class="mb-0" style="color:#64748b; font-size:.85rem;">Letakkan kartu identitas atau QR code pada area scanner di sebelah kiri.</p>
+                </div>
+              </div>
+              <div id="offlineQueueBadge" class="offline-queue-badge d-none">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="oqb-icon"><i class="bi bi-arrow-repeat"></i></div>
+                  <div>
+                    <p class="oqb-title">Mode Offline Aktif</p>
+                    <p class="oqb-desc"><span id="offlineQueueBadgeText">0 presensi menunggu koneksi</span> - akan otomatis dikirim.</p>
+                  </div>
+                </div>
+                <button type="button" class="oqb-sync-btn" onclick="flushOfflineQueue()">Sinkronisasi Sekarang</button>
+              </div>
+            </div>
+
+          </div> <!-- END ROW Utama -->
+        </section>
+
+        <!-- VIEW 2: DASHBOARD ANALYTICS -->
+        <section id="view-dashboard" class="view-section d-none">
+          <h3 class="fw-bold text-emerald mb-3">Dashboard Analytics Realtime</h3>
+
+          <div class="card border-0 shadow-sm p-3 rounded-4 mb-4">
+            <div class="row g-2 align-items-end">
+              <div class="col-sm-4 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Tanggal</label>
+                <input type="date" id="dashboardFilterDate" class="form-control form-control-sm rounded-3">
+              </div>
+              <div class="col-sm-4 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Sesi Makan</label>
+                <select id="dashboardFilterSession" class="form-select form-select-sm rounded-3">
+                  <option value="pagi">Sarapan Pagi</option>
+                  <option value="siang">Makan Siang</option>
+                  <option value="malam">Makan Malam</option>
+                </select>
+              </div>
+              <div class="col-sm-4 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Santri</label>
+                <select id="genderFilterDashboard" class="form-select form-select-sm rounded-3">
+                  <option value="">Semua Santri</option>
+                  <option value="L">Santri Putra</option>
+                  <option value="P">Santri Putri</option>
+                </select>
+              </div>
+              <div class="col-sm-4 col-md-3">
+                <button id="btnTampilkanDashboard" class="btn btn-emerald btn-sm rounded-3 px-4" type="button">
+                  <i class="bi bi-search me-1"></i> Tampilkan
+                </button>
+              </div>
+              <div class="col-12">
+                <small class="text-muted" id="dashboardFilterInfo">Menampilkan data hari ini.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-4">
+            <div class="col-md-8">
+              <div class="card border-0 shadow-sm p-4 rounded-4">
+                <h5 class="fw-bold mb-3">Grafik Presensi Makan</h5>
+                <div style="position:relative; height:300px;">
+                  <canvas id="chartKehadiran"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card border-0 shadow-sm p-4 rounded-4">
+                <h5 class="fw-bold mb-3">Aktivitas Scan</h5>
+                <ul class="list-group list-group-flush small" id="recentScanList">
+                  <li class="list-group-item text-muted">Belum ada aktivitas...</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 3: DATA SANTRI -->
+        <section id="view-santri" class="view-section d-none">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-bold text-emerald m-0">Data Santri</h3>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-emerald border-emerald text-emerald rounded-pill px-3" id="btnImportSantri" type="button"><i class="bi bi-file-earmark-arrow-up me-1"></i> Import CSV</button>
+              <button class="btn btn-emerald rounded-pill px-3" id="btnAddSantri" type="button"><i class="bi bi-plus-lg me-1"></i> Tambah Santri</button>
+            </div>
+          </div>
+          <div class="card border-0 shadow-sm p-4 rounded-4">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle w-100" id="tableSantri">
+                <thead class="table-light">
+                  <tr>
+                    <th>NIS</th>
+                    <th>Nama</th>
+                    <th>JK</th>
+                    <th>Kelas</th>
+                    <th>Asrama</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="santriTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 4: CETAK KARTU -->
+        <section id="view-cards" class="view-section d-none">
+          <h3 class="fw-bold text-emerald mb-1">Cetak Kartu Makan (CR80)</h3>
+          <p class="text-muted small mb-4">Tinjau desain kartu depan &amp; belakang sebelum cetak massal. Setiap baris berisi kartu depan+belakang 1 santri, beberapa santri disusun ke bawah dalam 1 halaman A4 - cocok untuk printer rumahan/kantor biasa.</p>
+
+          <div class="row g-4">
+            <!-- KIRI: PREVIEW KARTU (sekaligus jadi sumber cetak) -->
+            <div class="col-lg-8">
+              <div class="card border-0 shadow-sm rounded-4 p-3" style="max-height: 74vh; overflow-y: auto; background: #f8fafc;">
+                <div id="printableArea" class="card-canvas d-flex flex-column align-items-center gap-3"></div>
+              </div>
+            </div>
+
+            <!-- KANAN: KONFIGURASI DESAIN & CETAK -->
+            <div class="col-lg-4">
+              <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
+                <h6 class="fw-bold text-emerald mb-3"><i class="bi bi-sliders me-2"></i>Konfigurasi Desain</h6>
+
+                <label class="form-label small fw-semibold mb-1">Tema Warna Kartu</label>
+                <div class="d-flex gap-2 mb-3" id="cardThemeSwatches">
+                  <button type="button" class="card-theme-swatch active" data-theme="emerald" title="Emerald (Default)"></button>
+                  <button type="button" class="card-theme-swatch" data-theme="dark" title="Hijau Tua"></button>
+                  <button type="button" class="card-theme-swatch" data-theme="light" title="Netral Abu-abu"></button>
+                </div>
+
+                <label class="form-label small fw-semibold mb-1">Format Barcode</label>
+                <select id="cardBarcodeFormat" class="form-select form-select-sm rounded-3 mb-3">
+                  <option value="CODE128" selected>Code 128 (Kepadatan Tinggi)</option>
+                  <option value="CODE39">Code 39</option>
+                  <option value="EAN13">EAN-13</option>
+                </select>
+
+                <label class="form-label small fw-semibold mb-2 d-block">Tampilan Kartu</label>
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="cardShowAsrama" checked="checked"/>
+                  <label class="form-check-label small" for="cardShowAsrama">Tampilkan Asrama</label>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="cardShowBack" checked="checked"/>
+                  <label class="form-check-label small" for="cardShowBack">Sertakan Sisi Belakang</label>
+                </div>
+              </div>
+
+              <div class="card border-0 shadow-sm rounded-4 p-3" style="background: #eaf2ff;">
+                <h6 class="fw-bold mb-2"><i class="bi bi-check-circle-fill text-emerald me-1"></i>Siap Cetak</h6>
+                <p class="small text-muted mb-3">Ukuran kartu CR80 standar terverifikasi. Kartu depan &amp; belakang tercetak sejajar per baris, beberapa santri per halaman A4.</p>
+                <button class="btn btn-emerald rounded-pill w-100" onclick="printCards()" type="button"><i class="bi bi-printer me-1"></i> Cetak Kartu <span id="cardPrintCount"></span></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 5: LAPORAN -->
+        <section id="view-reports" class="view-section d-none">
+          <h3 class="fw-bold text-emerald mb-4">Laporan &amp; Rekapitulasi</h3>
+          <div class="card border-0 shadow-sm p-4 rounded-4 mb-3">
+            <div class="row g-2 align-items-end">
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Dari Tanggal</label>
+                <input type="date" id="filterStartDate" class="form-control form-control-sm rounded-3"/>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Sampai Tanggal</label>
+                <input type="date" id="filterEndDate" class="form-control form-control-sm rounded-3"/>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Sesi</label>
+                <select id="filterSession" class="form-select form-select-sm rounded-3">
+                  <option value="">Semua Sesi</option>
+                  <option value="pagi">Sarapan Pagi</option>
+                  <option value="siang">Makan Siang</option>
+                  <option value="malam">Makan Malam</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Kelas</label>
+                <select id="filterKelas" class="form-select form-select-sm rounded-3"><option value="">Semua Kelas</option></select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Asrama</label>
+                <select id="filterAsrama" class="form-select form-select-sm rounded-3"><option value="">Semua Asrama</option></select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Jenis</label>
+                <select id="filterJenis" class="form-select form-select-sm rounded-3">
+                  <option value="">Semua</option>
+                  <option value="PERTAMA">Makan Pertama</option>
+                  <option value="NAMBAH">Nambah (2x)</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2">
+                <button class="btn btn-emerald w-100 rounded-3 btn-sm" id="btnLoadReport"><i class="bi bi-search me-1"></i>Tampilkan</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm p-4 rounded-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <span class="text-muted small" id="reportSummaryText">Belum ada data ditampilkan</span>
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-danger btn-sm rounded-pill" id="btnExportPdf"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+                <button class="btn btn-outline-success btn-sm rounded-pill" id="btnExportExcel"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+              </div>
+            </div>
+            <table class="table table-striped align-middle" id="tableReport">
+              <thead>
+                <tr>
+                  <th>NIS</th>
+                  <th>Nama</th>
+                  <th>Kelas</th>
+                  <th>Asrama</th>
+                  <th>Sesi</th>
+                  <th>Jenis</th>
+                  <th>Tanggal</th>
+                  <th>Jam</th>
+                </tr>
+              </thead>
+              <tbody id="reportTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- VIEW 6: PENGATURAN -->
+        <section id="view-settings" class="view-section d-none">
+          <h3 class="fw-bold text-emerald mb-4">Pengaturan Lembaga</h3>
+          
+          <!-- GRID ROW UTAMA (Layout 2 Kolom untuk Desktop) -->
+          <div class="row g-4 align-items-start">
+            
+            <!-- KOLOM KIRI: PENGATURAN GENERAL & LOGO -->
+            <div class="col-12 col-lg-5 col-xl-4">
+              <div class="card border-0 shadow-sm p-4 rounded-4">
+                <h5 class="fw-semibold text-emerald mb-3"><i class="bi bi-gear-fill me-2"></i>Pengaturan Umum</h5>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Nama Pondok / Lembaga</label>
+                  <input type="text" id="settingNamaPondok" class="form-control rounded-3"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Sub Judul Aplikasi</label>
+                  <input type="text" id="settingSubJudul" class="form-control rounded-3"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">URL Logo Lembaga</label>
+                  <input type="text" id="settingLogoUrl" class="form-control rounded-3" placeholder="https://..."/>
+                  <div class="form-text">Tempel URL gambar logo (misal dari Google Drive/hosting gambar). Kosongkan untuk pakai ikon bawaan.</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small text-muted">Pratinjau Logo:</label><br/>
+                  <img id="settingLogoPreview" src="" class="border rounded p-1 d-none" style="width:60px; height:60px; object-fit:contain;"/>
+                </div>
+                <hr class="my-3"/>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Jeda Sebelum Boleh Nambah (menit)</label>
+                  <input type="number" id="settingJedaNambah" min="1" max="120" class="form-control rounded-3" style="max-width:150px;"/>
+                  <div class="form-text">Santri baru bisa presensi "nambah" setelah jeda ini berlalu sejak makan pertama, sebagai perkiraan waktu makan.</div>
+                </div>
+                <button class="btn btn-emerald rounded-3 py-2 fw-bold w-100" id="btnSaveSettings">Simpan Pengaturan</button>
+              </div>
+            </div>
+
+            <!-- KOLOM KANAN: JADWAL WAKTU MAKAN -->
+            <div class="col-12 col-lg-7 col-xl-8">
+              <div class="card border-0 shadow-sm p-4 rounded-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                  <div>
+                    <h5 class="fw-semibold text-emerald m-0"><i class="bi bi-clock-history me-2"></i>Jadwal Waktu Makan Per Hari</h5>
+                    <div class="form-text m-0">Jam ini tampil sebagai label sesi di layar kios, dan sesi yang sedang berjalan akan otomatis terpilih sesuai jam saat ini.</div>
+                  </div>
+                  <button type="button" class="btn btn-outline-emerald border-emerald text-emerald btn-sm rounded-pill ms-auto" id="btnSamakanJadwal">
+                    <i class="bi bi-copy me-1"></i>Samakan Semua Hari dengan Senin
+                  </button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle text-center" id="jadwalMakanTable">
+                    <thead class="table-light">
+                      <tr>
+                        <th class="text-start">Hari</th>
+                        <th colspan="2">Sarapan Pagi</th>
+                        <th colspan="2">Makan Siang</th>
+                        <th colspan="2">Makan Malam</th>
+                      </tr>
+                    </thead>
+                    <tbody id="jadwalMakanBody"><!-- diisi via JS --></tbody>
+                  </table>
+                </div>
+                <div class="d-flex justify-content-end mt-2">
+                  <button class="btn btn-emerald rounded-3 py-2 fw-bold px-4" id="btnSaveJadwal">Simpan Jadwal Makan</button>
+                </div>
+              </div>
+            </div>
+
+          </div> <!-- END ROW -->
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL LOGIN -->
+  <div class="modal fade" id="loginModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4 border-0 shadow">
+        <div class="modal-header bg-emerald-dark text-white rounded-top-4">
+          <h5 class="modal-title fw-bold"><i class="bi bi-shield-lock me-2"></i>Login Admin</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Username</label>
+            <input type="text" id="loginUser" class="form-control rounded-3" value="admin"/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Password</label>
+            <input type="password" id="loginPass" class="form-control rounded-3"/>
+          </div>
+        </div>
+        <div class="modal-footer border-0 px-4 pb-4 flex-column gap-2">
+          <button type="button" class="btn btn-emerald w-100 rounded-3 py-2 fw-bold" id="btnExecuteLogin">Masuk Panel Admin</button>
+          <button type="button" class="btn btn-outline-secondary w-100 rounded-3 py-2 btn-sm" id="btnPingServer">
+            <i class="bi bi-wifi me-1"></i> Cek Koneksi Server
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TAMBAH SANTRI -->
+  <!-- MODAL DETAIL METRIK DASHBOARD -->
+  <div class="modal fade" id="detailMetrikModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content rounded-4 border-0 shadow">
+        <div class="modal-header bg-emerald text-white rounded-top-4">
+          <h5 class="modal-title fw-bold" id="detailMetrikTitle"><i class="bi bi-list-check me-2"></i>Detail Santri</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+              <thead>
+                <tr><th style="width:50px;">No</th><th>NIS</th><th>Nama Santri</th><th>Kelas</th><th>Asrama</th></tr>
+              </thead>
+              <tbody id="detailMetrikBody">
+                <tr><td colspan="5" class="text-center text-muted py-4">Memuat data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="santriModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4 border-0 shadow">
+        <div class="modal-header bg-emerald text-white rounded-top-4">
+          <h5 class="modal-title fw-bold" id="santriModalTitle"><i class="bi bi-person-plus-fill me-2"></i>Tambah Santri</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <form id="formSantri">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">NIS <span class="text-danger">*</span></label>
+              <input type="text" id="inputNis" class="form-control rounded-3" required="required"/>
+              <small class="text-muted" id="inputNisHint"></small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nama Lengkap <span class="text-danger">*</span></label>
+              <input type="text" id="inputNama" class="form-control rounded-3" required="required"/>
+            </div>
+            <div class="row">
+              <div class="col-4 mb-3">
+                <label class="form-label fw-semibold">JK</label>
+                <select id="inputJk" class="form-select rounded-3">
+                  <option value="L">L</option>
+                  <option value="P">P</option>
+                </select>
+              </div>
+              <div class="col-4 mb-3">
+                <label class="form-label fw-semibold">Kelas</label>
+                <input type="text" id="inputKelas" class="form-control rounded-3" placeholder="10-A"/>
+              </div>
+              <div class="col-4 mb-3">
+                <label class="form-label fw-semibold">Asrama</label>
+                <input type="text" id="inputAsrama" class="form-control rounded-3"/>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-8 mb-3">
+                <label class="form-label fw-semibold">URL Foto (opsional)</label>
+                <input type="text" id="inputFoto" class="form-control rounded-3" placeholder="https://..."/>
+                <small class="text-muted d-block mt-1">Boleh tempel link "Share" Google Drive biasa (pastikan akses diatur "Anyone with the link") - otomatis dikonversi jadi gambar.</small>
+              </div>
+              <div class="col-4 mb-3">
+                <label class="form-label fw-semibold">Status</label>
+                <select id="inputStatus" class="form-select rounded-3">
+                  <option value="Aktif">Aktif</option>
+                  <option value="Nonaktif">Nonaktif</option>
+                </select>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-0 px-4 pb-4">
+          <button type="button" class="btn btn-emerald w-100 rounded-3 py-2 fw-bold" id="btnSubmitSantri">Simpan Santri</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORT CSV -->
+  <div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4 border-0 shadow">
+        <div class="modal-header bg-emerald text-white rounded-top-4">
+          <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-arrow-up me-2"></i>Import Data Santri (CSV)</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3 p-3 rounded-3" style="background:#f0fdf4;">
+            <div class="fw-semibold small mb-1"><i class="bi bi-1-circle-fill text-emerald me-1"></i>Unduh template terlebih dahulu</div>
+            <p class="small text-muted mb-2">Gunakan template ini agar kolom data sesuai dengan sistem, tidak perlu menyesuaikan format sendiri.</p>
+            <button type="button" class="btn btn-outline-emerald border-emerald text-emerald btn-sm rounded-pill" id="btnDownloadTemplate">
+              <i class="bi bi-download me-1"></i> Download Template CSV
+            </button>
+          </div>
+
+          <div class="mb-2">
+            <div class="fw-semibold small mb-1"><i class="bi bi-2-circle-fill text-emerald me-1"></i>Pilih file CSV yang sudah diisi</div>
+            <input type="file" id="importFileInput" accept=".csv" class="form-control rounded-3"/>
+          </div>
+
+          <div id="importPreviewArea" class="small mt-3" style="max-height:250px; overflow:auto;"></div>
+        </div>
+        <div class="modal-footer border-0 px-4 pb-4">
+          <button type="button" class="btn btn-emerald w-100 rounded-3 py-2 fw-bold" id="btnConfirmImport" disabled="disabled">Proses Import</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WADAH KHUSUS UNTUK CETAK KARTU - sengaja diletakkan SEBAGAI SIBLING dari #icanteen-app
+     (bukan bersarang di dalamnya), lalu diisi via clone innerJS saat tombol "Cetak Kartu"
+     ditekan. Ini menghindari trik CSS visibility+position:absolute yang rawan tertimpa oleh
+     aturan overflow/scroll pada panel preview, sehingga hasil cetak jadi kosong/terpotong. -->
+<div id="cardPrintHost"></div>
+
+<!-- JS DEPENDENCIES -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+//<![CDATA[
+  // URL BACKEND GOOGLE APPS SCRIPT WEB APP
+  var GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwvneGethFl7EmMRKp3xIolpNlHbfuI-bsT6Ef_O7bc4etRsv-r0yhRQsOoGbVoABL-6A/exec";
+
+  var isAdminLoggedIn = false;
+  var isScanLocked = false;
+  var SCAN_COOLDOWN_MS = 5000;
+
+  // FILTER SANTRI PUTRA/PUTRI - dipakai bersama oleh kartu metrik kios & Dashboard
+  // Analytics. Disimpan per-tablet di localStorage (bukan per-akun/server) supaya kios
+  // yang ditempatkan di kantin putra dan kios di kantin putri masing-masing tetap
+  // menampilkan filter pilihannya sendiri walau memakai aplikasi & backend yang sama
+  // persis, tanpa perlu diset ulang tiap kali halaman dibuka.
+  var GENDER_FILTER_KEY = 'icanteen_gender_filter';
+  function getGenderFilter_() {
+    try {
+      return localStorage.getItem(GENDER_FILTER_KEY) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+  function setGenderFilter_(val) {
+    try { localStorage.setItem(GENDER_FILTER_KEY, val || ''); } catch (e) {}
+    $('#genderFilterKios, #genderFilterDashboard').val(val || '');
+  }
+
+  // AVATAR DEFAULT (Laki-laki berpeci / Perempuan berhijab) - dipakai jika santri belum punya foto
+  function getDefaultAvatar(jk) {
+    var isFemale = (String(jk).toUpperCase() === 'P');
+
+    // Direct Link Google Drive Foto
+    var femaleAvatarUrl = 'https://lh3.googleusercontent.com/d/1Ozhadt-O6bucA4h88e1DpbqWaKeocHAt';
+    var maleAvatarUrl = 'https://lh3.googleusercontent.com/d/1LRjjjb30dl6DkEg-1fkqtJd9rEfpi4DX';
+
+    return isFemale ? femaleAvatarUrl : maleAvatarUrl;
+  }
+
+  // Mengambil FILE_ID dari berbagai bentuk URL berbagi Google Drive, misalnya:
+  //   https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+  //   https://drive.google.com/open?id=FILE_ID
+  //   https://drive.google.com/uc?id=FILE_ID&export=download
+  // Mengembalikan null kalau URL bukan format Google Drive yang dikenali.
+  function extractDriveFileId_(url) {
+    if (!url) return null;
+    var m = url.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/) || url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+    return m ? m[1] : null;
+  }
+
+  function resolvePhotoUrl(fotoUrl, jk) {
+    if (!fotoUrl || fotoUrl.indexOf('placeholder.com') !== -1) {
+      return getDefaultAvatar(jk);
+    }
+    // Link "berbagi" Google Drive (yang muncul saat klik Share -> Copy link) adalah
+    // halaman PREVIEW, bukan file gambar langsung - kalau dipasang apa adanya di tag
+    // <img>, browser tidak bisa merender apa pun (foto tidak tampil di kartu cetak).
+    // Di sini otomatis dikonversi ke format lh3.googleusercontent.com/d/FILE_ID - format
+    // yang sama persis dipakai avatar default di atas dan sudah terbukti tampil normal
+    // di lingkungan aplikasi ini (Blogger/iframe). Admin cukup tempel link Share biasa
+    // (pastikan sharing sudah diatur "Anyone with the link").
+    var driveId = extractDriveFileId_(fotoUrl);
+    if (driveId) {
+      return 'https://lh3.googleusercontent.com/d/' + driveId;
+    }
+    return fotoUrl;
+  }
+
+  // Membuat tag <img> lengkap dengan fallback otomatis: kalau URL foto (termasuk hasil
+  // konversi link Google Drive di atas) ternyata gagal dimuat - misalnya sharing-nya
+  // belum diatur "Anyone with the link", atau link sudah dihapus/diganti - browser akan
+  // otomatis menggantinya dengan avatar default alih-alih menampilkan ikon gambar rusak.
+  function buildAvatarImgTag_(fotoUrl, jk, cssClass, width, height) {
+    var src = resolvePhotoUrl(fotoUrl, jk);
+    var fallback = getDefaultAvatar(jk);
+    return '<img src="' + src + '" class="' + cssClass + '" width="' + width + '" height="' + (height || width) +
+      '" onerror="this.onerror=null;this.src=\'' + fallback + '\';">';
+  }
+  var html5Qrcode = null; // instance kamera level-rendah (bukan widget Html5QrcodeScanner)
+  var cameraDeviceList = []; // daftar kamera yang terdeteksi (untuk tombol ganti depan/belakang)
+  var activeCameraIndex = 0;
+  var isCameraRunning = false; // true HANYA kalau start() benar-benar berhasil - mencegah .stop() dipanggil pada scanner yang belum pernah start (mis. perangkat tanpa kamera)
+
+  var HARI_LIST = [
+    { key: 'senin', label: 'Senin' },
+    { key: 'selasa', label: 'Selasa' },
+    { key: 'rabu', label: 'Rabu' },
+    { key: 'kamis', label: 'Kamis' },
+    { key: 'jumat', label: 'Jumat' },
+    { key: 'sabtu', label: 'Sabtu' },
+    { key: 'minggu', label: 'Minggu' }
+  ];
+  var HARI_JS_INDEX = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu']; // index Date.getDay()
+
+  function renderJadwalMakanTable(jadwal) {
+    var html = '';
+    var hariIniKey = HARI_JS_INDEX[new Date().getDay()]; // supaya baris hari ini bisa ditandai jelas
+    HARI_LIST.forEach(function(h) {
+      var d = jadwal[h.key] || {};
+      var pagi = d.pagi || { start: '06:00', end: '08:00' };
+      var siang = d.siang || { start: '12:00', end: '14:00' };
+      var malam = d.malam || { start: '18:00', end: '20:00' };
+      var isToday = (h.key === hariIniKey);
+      var rowClass = isToday ? ' table-success' : '';
+      var labelHariIni = isToday ? ' <span class="badge bg-emerald">Hari Ini</span>' : '';
+      html += '<tr data-hari="' + h.key + '" class="' + rowClass + '">' +
+        '<td class="text-start fw-semibold">' + h.label + labelHariIni + '</td>' +
+        '<td><input type="time" class="form-control form-control-sm jadwal-input" data-session="pagi" data-field="start" value="' + pagi.start + '"></td>' +
+        '<td><input type="time" class="form-control form-control-sm jadwal-input" data-session="pagi" data-field="end" value="' + pagi.end + '"></td>' +
+        '<td><input type="time" class="form-control form-control-sm jadwal-input" data-session="siang" data-field="start" value="' + siang.start + '"></td>' +
+        '<td><input type="time" class="form-control form-control-sm jadwal-input" data-session="siang" data-field="end" value="' + siang.end + '"></td>' +
+        '<td><input type="time" class="form-control form-control-sm jadwal-input" data-session="malam" data-field="start" value="' + malam.start + '"></td>' +
+        '<td><input type="time" class="form-control form-control-sm jadwal-input" data-session="malam" data-field="end" value="' + malam.end + '"></td>' +
+        '</tr>';
+    });
+    $('#jadwalMakanBody').html(html);
+  }
+
+  function collectJadwalMakanFromForm() {
+    var jadwal = {};
+    $('#jadwalMakanBody tr').each(function() {
+      var hari = $(this).data('hari');
+      var dayObj = { pagi: {}, siang: {}, malam: {} };
+      $(this).find('.jadwal-input').each(function() {
+        dayObj[$(this).data('session')][$(this).data('field')] = $(this).val();
+      });
+      jadwal[hari] = dayObj;
+    });
+    return jadwal;
+  }
+
+  // ==========================================
+// 1. DEFINISI FUNGSI
+// ==========================================
+  var lastLoadedJadwal = null; // cache jadwal makan hari ini, diisi saat loadAppSettings() / applyJadwalMakanToKiosk()
+
+  // PERBAIKAN: versi sebelumnya membaca dari `window.jadwalMakanData` yang TIDAK PERNAH diisi
+  // di mana pun di kode ini, sehingga badge selalu jatuh ke "Di Luar Sesi Makan" apa pun jamnya.
+  // Sekarang pakai `lastLoadedJadwal` (struktur {pagi:{start,end}, siang:{...}, malam:{...}}),
+  // sumber data yang sama dengan yang dipakai untuk mengisi dropdown #scanSessionSelect.
+  // CATATAN: badge ini murni INFORMASI untuk operator - tidak pernah memblokir/mengubah proses
+  // scan. Kalau santri makan di luar jam jadwal, scan tetap diproses dan dicatat sesuai sesi
+  // yang sedang dipilih di dropdown #scanSessionSelect (default: sesi terdekat dari jam sekarang,
+  // tapi operator boleh menggantinya manual). Ini supaya data makan di luar jadwal tetap masuk
+  // rapi ke salah satu dari 3 sesi resmi (pagi/siang/malam), bukan hilang/tidak tercatat.
+  function updateSesiAktifOtomatis() {
+    var pill = document.getElementById('sesiStatusPill');
+    var pillText = document.getElementById('sesiStatusText');
+    var labelEl = document.getElementById('sesiLabelText');
+    var timeEl = document.getElementById('sesiTimeText');
+    if (!pill || !lastLoadedJadwal) return;
+
+    var hariKey = HARI_JS_INDEX[new Date().getDay()];
+    var todayJadwal = lastLoadedJadwal[hariKey] || {};
+    var labelMap = { pagi: 'Sarapan Pagi', siang: 'Makan Siang', malam: 'Makan Malam' };
+    var now = new Date();
+    var nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Sesi yang sedang DIPILIH di dropdown kios - bukan selalu sama dengan jam sekarang,
+    // karena operator boleh menggantinya manual (mis. mencatat makan di luar jadwal).
+    var selectedSesi = $('#scanSessionSelect').val() || 'pagi';
+    var t = todayJadwal[selectedSesi] || {};
+
+    if (labelEl) labelEl.textContent = labelMap[selectedSesi] || selectedSesi;
+    if (timeEl) timeEl.textContent = (t.start && t.end) ? (t.start + ' - ' + t.end + ' WIB') : 'Jadwal belum diatur';
+
+    var isActiveNow = false;
+    if (t.start && t.end) {
+      var sp = t.start.split(':'); var ep = t.end.split(':');
+      var startMin = (parseInt(sp[0], 10) * 60) + parseInt(sp[1], 10);
+      var endMin = (parseInt(ep[0], 10) * 60) + parseInt(ep[1], 10);
+      isActiveNow = (nowMinutes >= startMin && nowMinutes <= endMin);
+    }
+
+    if (isActiveNow) {
+      pill.classList.remove('inactive');
+      if (pillText) pillText.textContent = 'Sesi Aktif';
+    } else {
+      pill.classList.add('inactive');
+      if (pillText) pillText.textContent = 'Di Luar Jadwal';
+    }
+  }
+
+// ==========================================
+// 2. PEMANGGILAN FUNGSI (EVENT LISTENERS)
+// ==========================================
+
+// A. Panggil saat halaman pertama kali selesai dimuat (DOMReady / Init)
+document.addEventListener('DOMContentLoaded', () => {
+  // Jalankan langsung sekali saat aplikasi dibuka
+  updateSesiAktifOtomatis();
+
+  // Jalankan pengecekan otomatis setiap 10 detik agar jam selalu akurat & realtime
+  setInterval(updateSesiAktifOtomatis, 10000);
+});
+  
+  // Menerapkan jadwal hari ini ke label dropdown sesi di kios, dan otomatis memilih
+  // sesi yang sedang berjalan sesuai jam saat ini (kalau ada yang cocok).
+  function applyJadwalMakanToKiosk(jadwal) {
+    lastLoadedJadwal = jadwal || {}; // cache untuk dipakai badge updateSesiAktifOtomatis()
+    var hariKey = HARI_JS_INDEX[new Date().getDay()];
+    var todayJadwal = (jadwal && jadwal[hariKey]) || {
+      pagi: { start: '06:00', end: '08:00' },
+      siang: { start: '12:00', end: '14:00' },
+      malam: { start: '18:00', end: '20:00' }
+    };
+
+    var labelMap = { pagi: 'Sarapan Pagi', siang: 'Makan Siang', malam: 'Makan Malam' };
+    ['pagi', 'siang', 'malam'].forEach(function(sesi) {
+      var t = todayJadwal[sesi] || {};
+      $('#scanSessionSelect option[value="' + sesi + '"]').text(
+        labelMap[sesi] + ' (' + (t.start || '-') + ' - ' + (t.end || '-') + ')'
+      );
+    });
+
+    // Auto-pilih sesi yang jam-nya mencakup waktu sekarang (kalau operator kios belum mengubahnya manual)
+    var now = new Date();
+    var nowMinutes = now.getHours() * 60 + now.getMinutes();
+    var activeSesi = null;
+    ['pagi', 'siang', 'malam'].forEach(function(sesi) {
+      var t = todayJadwal[sesi];
+      if (!t || !t.start || !t.end) return;
+      var startParts = t.start.split(':'); var endParts = t.end.split(':');
+      var startMin = (parseInt(startParts[0], 10) * 60) + parseInt(startParts[1], 10);
+      var endMin = (parseInt(endParts[0], 10) * 60) + parseInt(endParts[1], 10);
+      if (nowMinutes >= startMin && nowMinutes <= endMin) activeSesi = sesi;
+    });
+    if (activeSesi) $('#scanSessionSelect').val(activeSesi);
+
+    updateSesiAktifOtomatis(); // refresh badge segera, jangan tunggu interval 10 detik berikutnya
+  }
+  var chartInstance = null;
+
+  document.addEventListener("DOMContentLoaded", function() {
+    startClock();
+    autoSelectMealSession();
+    initChart();
+    setGenderFilter_(getGenderFilter_()); // terapkan filter tersimpan (kalau ada) ke kedua dropdown
+    loadDashboardData();
+    loadAppSettings();
+    initCameraScanner();
+    setupHIDListener();
+    bindEventListeners();
+    updateOfflineQueueBadge_(); // tampilkan badge kalau ada sisa antrean dari sesi sebelumnya
+    scheduleQueueFlush_(1000);  // langsung coba kirim sisa antrean begitu halaman dibuka
+  });
+
+  function loadAppSettings() {
+    callApi('getSettings', {}, function(res) {
+      if (res && res.success && res.data) {
+        var s = res.data;
+        if (s.namaPondok) $('.main-header h6').text(s.namaPondok);
+        if (s.subJudul) $('.main-header .header-subtitle').text(s.subJudul);
+        if (s.logoUrl) {
+          $('.main-header .bg-white').html('<img src="' + s.logoUrl + '" style="width:100%; height:100%; object-fit:contain;">');
+        }
+        applyJadwalMakanToKiosk(s.jadwalMakan);
+      }
+    });
+  }
+
+  // OTOMATISASI SESI MAKAN
+  function autoSelectMealSession() {
+    var now = new Date();
+    var currentHour = parseInt(new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      hour12: false
+    }).format(now), 10);
+
+    var session = 'pagi';
+    if (currentHour >= 10 && currentHour < 16) {
+      session = 'siang';
+    } else if (currentHour >= 16 || currentHour < 4) {
+      session = 'malam';
+    } else {
+      session = 'pagi';
+    }
+
+    $('#scanSessionSelect').val(session);
+  }
+
+  // JAM REALTIME
+  function startClock() {
+    function updateTime() {
+      var now = new Date();
+      var timeOptions = { timeZone: 'Asia/Jakarta', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      var dateOptions = { timeZone: 'Asia/Jakarta', weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
+
+      var timeString = new Intl.DateTimeFormat('id-ID', timeOptions).format(now);
+      var dateString = new Intl.DateTimeFormat('id-ID', dateOptions).format(now);
+
+      $('#clockDisplayText').text(timeString.replace(/\./g, ':') + ' WIB');
+      $('#dateDisplay').text(dateString);
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+  }
+
+  // ==========================================================================
+  // ANTREAN OFFLINE (OFFLINE QUEUE) - untuk presensi scan yang GAGAL terkirim
+  // ==========================================================================
+  // Latar belakang: koneksi internet kios kadang tidak stabil, terutama saat jam makan
+  // ramai (banyak scan hampir bersamaan). Kalau permintaan processScan/confirmSecondMeal
+  // gagal terkirim ke server saat itu, presensi bisa hilang tanpa jejak - santri sudah
+  // terlanjur lewat padahal datanya tidak pernah tercatat.
+  //
+  // Solusi: dua aksi ini ("processScan" dan "confirmSecondMeal") TIDAK PERNAH ditampilkan
+  // sebagai "gagal" ke petugas hanya karena masalah jaringan. Begitu terdeteksi gagal
+  // kirim (offline / timeout / server tak terjangkau), permintaannya disimpan ke
+  // localStorage (bertahan walau tab ditutup / tablet restart), kios tetap bisa lanjut
+  // scan santri berikutnya, dan sistem otomatis mengirim ulang antrean begitu koneksi
+  // pulih - satu per satu berurutan (bukan sekaligus banyak) supaya tidak menambah beban
+  // saat koneksi baru saja stabil kembali.
+  //
+  // Aman dari duplikat: apiProcessScan & apiConfirmSecondMeal di backend memakai ID
+  // dokumen yang deterministik (tanggal_sesi_barcode). Jadi kalau permintaan yang
+  // "gagal" itu SEBENARNYA sudah sempat tersimpan di server (hanya responsnya yang tidak
+  // sampai balik ke browser), pengiriman ulang tidak akan membuat catatan makan ganda -
+  // server akan otomatis mendeteksinya dan membalas status ALREADY_SCANNED/ALREADY_SECOND.
+  var OFFLINE_QUEUE_KEY = 'icanteen_offline_queue_v1';
+  var offlineQueueFlushing = false;
+  var offlineQueueMemoryFallback = []; // fallback kalau localStorage diblokir (mis. mode privat)
+  var localStorageAvailable_ = (function () {
+    try {
+      var testKey = '__icanteen_ls_test__';
+      localStorage.setItem(testKey, '1');
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  function oqLoad_() {
+    if (!localStorageAvailable_) return offlineQueueMemoryFallback.slice();
+    try {
+      var raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function oqSave_(list) {
+    if (!localStorageAvailable_) {
+      offlineQueueMemoryFallback = list;
+    } else {
+      try {
+        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.warn('Gagal menyimpan antrean offline ke localStorage:', e);
+      }
+    }
+    updateOfflineQueueBadge_();
+  }
+
+  function oqAdd_(item) {
+    var list = oqLoad_();
+    item.id = 'q_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    item.attempts = 0;
+    item.queuedAt = new Date().toISOString();
+    list.push(item);
+    oqSave_(list);
+    return item;
+  }
+
+  function oqRemove_(id) {
+    oqSave_(oqLoad_().filter(function (it) { return it.id !== id; }));
+  }
+
+  function updateOfflineQueueBadge_() {
+    var n = oqLoad_().length;
+    var $badge = $('#offlineQueueBadge');
+    if (n > 0) {
+      $('#offlineQueueBadgeText').text(n + ' presensi menunggu koneksi');
+      $badge.removeClass('d-none');
+    } else {
+      $badge.addClass('d-none');
+    }
+  }
+
+  // Fetch dengan batas waktu, supaya permintaan yang menggantung lama (jaringan lambat
+  // saat jam makan ramai) tidak membuat kios "macet" menunggu respons - dianggap gagal
+  // kirim & otomatis masuk antrean, bukan membuat petugas menunggu tanpa kepastian.
+  function fetchWithTimeout_(url, options, timeoutMs) {
+    var hasAbort = ('AbortController' in window);
+    var controller = hasAbort ? new AbortController() : null;
+    if (controller) options.signal = controller.signal;
+    var timeoutId = controller ? setTimeout(function () { controller.abort(); }, timeoutMs) : null;
+    return fetch(url, options).then(function (res) {
+      if (timeoutId) clearTimeout(timeoutId);
+      return res;
+    }).catch(function (err) {
+      if (timeoutId) clearTimeout(timeoutId);
+      throw err;
+    });
+  }
+
+  // Kirim satu aksi ke server. TIDAK PERNAH melempar exception ke pemanggil - selalu
+  // resolve dengan { ok:true, data:<respon server> } (server terjangkau, apa pun isi
+  // responsnya) atau { ok:false } (gagal jaringan / timeout / respons tidak valid).
+  function sendToServer_(action, payload, timeoutMs) {
+    var body = {};
+    for (var k in payload) body[k] = payload[k];
+    body.action = action;
+
+    return fetchWithTimeout_(GAS_WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    }, timeoutMs || 15000)
+      .then(function (response) { return response.text(); })
+      .then(function (textData) {
+        var resObj;
+        try {
+          resObj = (typeof textData === 'object' && textData !== null) ? textData : JSON.parse(textData);
+        } catch (err) {
+          return { ok: false, reason: 'parse' };
+        }
+        return { ok: true, data: resObj };
+      })
+      .catch(function (err) {
+        return { ok: false, reason: 'network', error: err };
+      });
+  }
+
+  // Dipakai KHUSUS untuk aksi yang tidak boleh hilang: processScan & confirmSecondMeal.
+  // callback(resObj, queued) -> queued=true berarti gagal kirim & sudah diamankan ke
+  // antrean lokal (bukan gagal permanen); queued=false berarti server benar-benar
+  // membalas (resObj berisi respons aslinya, termasuk kalau respons itu sendiri
+  // menyatakan gagal secara bisnis, mis. barcode tidak ditemukan).
+  function callApiQueueable(action, payload, callback) {
+    sendToServer_(action, payload, 15000).then(function (res) {
+      if (res.ok) {
+        callback(res.data, false);
+      } else {
+        oqAdd_({ action: action, payload: payload });
+        callback(null, true);
+        scheduleQueueFlush_(1500);
+      }
+    });
+  }
+
+  // Memproses antrean SATU per SATU secara berurutan (bukan sekaligus paralel) - supaya
+  // urutan presensi tetap terjaga dan supaya tidak membanjiri server dengan banyak
+  // request bersamaan tepat saat koneksi baru pulih (kondisi yang justru sering memicu
+  // ketidakstabilan lagi saat jam makan ramai).
+  function flushOfflineQueue() {
+    if (offlineQueueFlushing) return;
+    if (oqLoad_().length === 0) return;
+    offlineQueueFlushing = true;
+
+    function next() {
+      var current = oqLoad_();
+      if (current.length === 0) {
+        offlineQueueFlushing = false;
+        return;
+      }
+      var item = current[0];
+      sendToServer_(item.action, item.payload, 15000).then(function (res) {
+        if (res.ok) {
+          oqRemove_(item.id);
+          notifyQueueSynced_(item, res.data);
+          loadDashboardData();
+          next(); // lanjut ke item berikutnya di antrean
+        } else {
+          // Masih gagal (kemungkinan masih offline) - hentikan siklus ini, coba lagi
+          // pada siklus berikutnya (event 'online' atau interval berkala).
+          item.attempts = (item.attempts || 0) + 1;
+          var all = oqLoad_();
+          for (var i = 0; i < all.length; i++) {
+            if (all[i].id === item.id) { all[i] = item; break; }
+          }
+          oqSave_(all);
+          offlineQueueFlushing = false;
+        }
+      });
+    }
+    next();
+  }
+
+  function scheduleQueueFlush_(delayMs) {
+    setTimeout(flushOfflineQueue, delayMs || 0);
+  }
+
+  function notifyQueueSynced_(item, resData) {
+    var santri = (resData && resData.data && resData.data.santri) ? resData.data.santri : null;
+    var label = item.action === 'confirmSecondMeal' ? 'Nambah' : 'Presensi';
+    var msg = label + (santri ? ' ' + santri.nama : '') + ' berhasil tersinkron ke server.';
+    if (window.Swal && Swal.mixin) {
+      Swal.mixin({
+        toast: true, position: 'top-end', showConfirmButton: false,
+        timer: 3000, timerProgressBar: true
+      }).fire({ icon: 'success', title: msg });
+    } else {
+      console.log(msg);
+    }
+  }
+
+  window.addEventListener('online', function () { scheduleQueueFlush_(500); });
+  // Interval berkala sebagai jaring pengaman - event 'online' browser tidak selalu
+  // 100% akurat / tidak selalu terpicu di semua kondisi jaringan (mis. koneksi lambat
+  // tapi tidak benar-benar putus).
+  setInterval(flushOfflineQueue, 8000);
+
+  // API BRIDGE AMAN (Dua Lapis Proteksi JSON.parse)
+  function callApi(action, payload, callback) {
+    if (!payload) payload = {};
+    payload.action = action;
+
+    // Menggunakan Fetch API secara langsung agar lebih stabil di Blogger & Chromebook
+    fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(response) {
+      return response.text(); // Ambil mentahannya sebagai Text dulu
+    })
+    .then(function(textData) {
+      var resObj;
+      try {
+        // Cek apakah berupa Object atau String sebelum di-parse
+        if (typeof textData === 'object' && textData !== null) {
+          resObj = textData;
+        } else {
+          resObj = JSON.parse(textData);
+        }
+      } catch (err) {
+        console.error("Gagal parse respon JSON:", textData);
+        resObj = { success: false, message: "Respon server tidak valid" };
+      }
+      if (callback) callback(resObj);
+    })
+    .catch(function(error) {
+      console.error("Network / API Error:", error);
+      if (callback) callback({
+        success: false,
+        message: "Tidak bisa menghubungi server Apps Script sama sekali (bukan error login biasa). " +
+                  "Penyebab paling umum: (1) belum membuat deployment versi BARU setelah update kode " +
+                  "(Deploy > Manage deployments > edit > New version > Deploy), atau (2) GAS_WEB_APP_URL " +
+                  "di kode tidak sama dengan URL Web App yang aktif. Coba buka URL itu langsung di tab " +
+                  "browser baru untuk memastikan responnya berupa JSON, bukan halaman error/login Google."
+      });
+    });
+  }
+
+  // EVENT LISTENERS (Perbaikan Klik Admin Area)
+  function bindEventListeners() {
+    $('#btnSwitchCamera').off('click').on('click', switchCamera);
+
+    $('#btnAdminAccess').off('click').on('click', function(e) {
+      e.preventDefault();
+      if (!isAdminLoggedIn) {
+        // Tampilkan Modal Login
+        var modalEl = document.getElementById('loginModal');
+        if (modalEl) {
+          var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+          modal.show();
+        }
+      } else {
+        switchView('dashboard');
+      }
+    });
+
+    $('#btnExecuteLogin').off('click').on('click', executeLogin);
+
+    $('#btnLogoutAdmin').off('click').on('click', function(e) {
+      e.preventDefault();
+      isAdminLoggedIn = false;
+      $('#adminSidebar').addClass('d-none');
+      $('#mainContentArea').removeClass('col-md-9 col-lg-10').addClass('col-12');
+      $('#lblAdminAccess').text('Admin Area');
+      switchView('scanMode');
+      Swal.fire('Logout', 'Anda telah keluar dari mode Admin', 'info');
+    });
+
+    $(document).on('click', '.nav-menu-btn', function(e) {
+      e.preventDefault();
+      var targetView = $(this).data('view');
+      $('.nav-menu-btn').removeClass('active');
+      $(this).addClass('active');
+      switchView(targetView);
+    });
+
+    $('#scanSessionSelect').on('change', function() {
+      updateSesiAktifOtomatis();
+      loadDashboardData();
+    });
+
+    // FILTER SANTRI PUTRA/PUTRI - dua dropdown (di kios & di Dashboard Analytics)
+    // mewakili SATU filter yang sama, disimpan per-tablet di localStorage supaya kios
+    // kantin putra & kios kantin putri masing-masing tetap menampilkan filter pilihannya
+    // sendiri walau memakai aplikasi yang sama persis.
+    $('#genderFilterKios').on('change', function() {
+      setGenderFilter_($(this).val());
+      loadDashboardData();
+    });
+    $('#genderFilterDashboard').on('change', function() {
+      setGenderFilter_($(this).val());
+      loadDashboardAnalytics();
+    });
+
+    $('#btnTampilkanDashboard').off('click').on('click', function() {
+      loadDashboardAnalytics();
+    });
+
+    // TOMBOL TAMBAH SANTRI
+    $('#btnAddSantri').off('click').on('click', function(e) {
+      e.preventDefault();
+      $('#formSantri')[0].reset();
+      $('#santriModalTitle').html('<i class="bi bi-person-plus-fill me-2"></i>Tambah Santri');
+      $('#inputNis').prop('readonly', false).removeClass('bg-light');
+      $('#inputNisHint').text('');
+      $('#inputJk').val('L');
+      $('#inputStatus').val('Aktif');
+      var modalEl = document.getElementById('santriModal');
+      var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+      modal.show();
+    });
+
+    $('#btnSubmitSantri').off('click').on('click', function() {
+      var nis = $('#inputNis').val().trim();
+      var nama = $('#inputNama').val().trim();
+
+      if (!nis || !nama) {
+        Swal.fire('Peringatan', 'NIS dan Nama wajib diisi!', 'warning');
+        return;
+      }
+
+      var santriData = {
+        nis: nis,
+        nama: nama,
+        jk: $('#inputJk').val(),
+        kelas: $('#inputKelas').val().trim(),
+        asrama: $('#inputAsrama').val().trim(),
+        fotoUrl: $('#inputFoto').val().trim(),
+        status: $('#inputStatus').val()
+      };
+
+      var $btn = $('#btnSubmitSantri').prop('disabled', true).text('Menyimpan...');
+
+      callApi('addSantri', { santriData: santriData }, function(res) {
+        $btn.prop('disabled', false).text('Simpan Santri');
+        if (res && res.success) {
+          var modalEl = document.getElementById('santriModal');
+          bootstrap.Modal.getInstance(modalEl).hide();
+          Swal.fire({ icon: 'success', title: 'Tersimpan', text: res.message, timer: 1500, showConfirmButton: false });
+          loadSantriTable();
+        } else {
+          Swal.fire('Gagal', (res && res.message) ? res.message : 'Gagal menyimpan data santri.', 'error');
+        }
+      });
+    });
+
+    // TOMBOL IMPORT CSV
+    var parsedImportData = [];
+    var CSV_TEMPLATE_HEADER = 'nis,nama,jk,kelas,asrama,fotoUrl';
+    var CSV_TEMPLATE_EXAMPLE = '1006,Contoh Nama Santri,L,10-A,Al-Ghazali,';
+
+    $('#btnImportSantri').off('click').on('click', function(e) {
+      e.preventDefault();
+      parsedImportData = [];
+      $('#importFileInput').val('');
+      $('#importPreviewArea').html('');
+      $('#btnConfirmImport').prop('disabled', true);
+
+      var modalEl = document.getElementById('importModal');
+      var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+      modal.show();
+    });
+
+    $('#btnDownloadTemplate').off('click').on('click', function() {
+      var csvContent = CSV_TEMPLATE_HEADER + '\n' + CSV_TEMPLATE_EXAMPLE + '\n';
+      var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'Template_Import_Santri.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    $('#importFileInput').off('change').on('change', function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          parsedImportData = results.data.filter(function(row) { return row.nis; }).map(function(row) {
+            return {
+              nis: String(row.nis).trim(),
+              nama: (row.nama || '').trim(),
+              jk: (row.jk || 'L').trim(),
+              kelas: (row.kelas || '').trim(),
+              asrama: (row.asrama || '').trim(),
+              fotoUrl: (row.fotoUrl || '').trim()
+            };
+          });
+
+          var previewHtml = '<table class="table table-sm"><thead><tr><th>NIS</th><th>Nama</th><th>Kelas</th></tr></thead><tbody>';
+          parsedImportData.slice(0, 20).forEach(function(row) {
+            previewHtml += '<tr><td>' + row.nis + '</td><td>' + row.nama + '</td><td>' + row.kelas + '</td></tr>';
+          });
+          previewHtml += '</tbody></table>';
+          if (parsedImportData.length > 20) {
+            previewHtml += '<p class="text-muted small">...dan ' + (parsedImportData.length - 20) + ' baris lainnya</p>';
+          }
+
+          $('#importPreviewArea').html(
+            parsedImportData.length > 0
+              ? ('<p class="fw-bold text-emerald">' + parsedImportData.length + ' baris siap diimport:</p>' + previewHtml)
+              : '<p class="text-danger">Tidak ada baris valid ditemukan (pastikan kolom "nis" terisi dan file sesuai template).</p>'
+          );
+          $('#btnConfirmImport').prop('disabled', parsedImportData.length === 0);
+        },
+        error: function(err) {
+          Swal.fire('Gagal', 'Gagal membaca file CSV: ' + err.message, 'error');
+        }
+      });
+    });
+
+    $('#btnConfirmImport').off('click').on('click', function() {
+      if (parsedImportData.length === 0) return;
+      var $btn = $(this).prop('disabled', true).text('Memproses...');
+
+      callApi('importSantri', { list: parsedImportData }, function(res) {
+        $btn.prop('disabled', false).text('Proses Import');
+        if (res && res.success) {
+          var modalEl = document.getElementById('importModal');
+          bootstrap.Modal.getInstance(modalEl).hide();
+          Swal.fire({ icon: 'success', title: 'Import Selesai', text: res.message, timer: 2500, showConfirmButton: false });
+          loadSantriTable();
+          parsedImportData = [];
+        } else {
+          Swal.fire('Gagal', (res && res.message) ? res.message : 'Import gagal.', 'error');
+        }
+      });
+    });
+
+    // TOMBOL CEK KONEKSI SERVER (diagnosa, bisa dipakai tanpa login)
+    $('#btnPingServer').off('click').on('click', function() {
+      var $btn = $(this).prop('disabled', true).html('<i class="bi bi-hourglass-split me-1"></i> Mengecek...');
+      callApi('ping', {}, function(res) {
+        $btn.prop('disabled', false).html('<i class="bi bi-wifi me-1"></i> Cek Koneksi Server');
+        if (res && res.success) {
+          var d = res.data;
+          var html =
+            '<div class="text-start small">' +
+            '<div><b>Project ID:</b> ' + (d.projectId || '(belum diset)') + '</div>' +
+            '<div><b>Config Firestore:</b> ' + (d.firestoreConfigOk ? '✅ OK' : '❌ Belum lengkap') + '</div>' +
+            '<div><b>Baca Data:</b> ' + (d.firestoreReadOk ? '✅ OK' : '❌ Gagal') + '</div>' +
+            '<div><b>Tulis Data:</b> ' + (d.firestoreWriteOk ? '✅ OK' : '❌ Gagal (cek Security Rules Firestore!)') + '</div>' +
+            '<hr><div class="text-muted">' + d.detail.join('<br>') + '</div>' +
+            '</div>';
+          Swal.fire({ title: 'Hasil Diagnosa', html: html, icon: (d.firestoreReadOk && d.firestoreWriteOk) ? 'success' : 'warning' });
+        } else {
+          Swal.fire('Tidak Terhubung', (res && res.message) ? res.message : 'Tidak bisa menghubungi server Apps Script sama sekali. Cek GAS_WEB_APP_URL dan deployment.', 'error');
+        }
+      });
+    });
+
+    // LAPORAN: FILTER & TAMPILKAN
+    var lastReportData = [];
+
+    $('#btnLoadReport').off('click').on('click', function() {
+      var payload = {
+        startDate: $('#filterStartDate').val(),
+        endDate: $('#filterEndDate').val(),
+        session: $('#filterSession').val(),
+        kelas: $('#filterKelas').val(),
+        asrama: $('#filterAsrama').val(),
+        jenis: $('#filterJenis').val()
+      };
+      var $btn = $(this).prop('disabled', true);
+      callApi('getReports', payload, function(res) {
+        $btn.prop('disabled', false);
+        if (res && res.success) {
+          lastReportData = res.data || [];
+          var html = '';
+          lastReportData.forEach(function(r) {
+            var jenisBadge = r.jenis === 'NAMBAH'
+              ? '<span class="badge" style="background:#a855f7;">Nambah</span>'
+              : '<span class="badge bg-emerald">Pertama</span>';
+            html += '<tr><td>' + r.nis + '</td><td>' + r.nama + '</td><td>' + (r.kelas || '') + '</td><td>' + (r.asrama || '') + '</td><td>' + r.session + '</td><td>' + jenisBadge + '</td><td>' + r.tanggal + '</td><td>' + r.jam + '</td></tr>';
+          });
+          $('#reportTableBody').html(html || '<tr><td colspan="8" class="text-muted text-center">Tidak ada data untuk filter ini</td></tr>');
+          $('#reportSummaryText').text(lastReportData.length + ' baris data ditemukan');
+        } else {
+          Swal.fire('Gagal', (res && res.message) ? res.message : 'Gagal memuat laporan.', 'error');
+        }
+      });
+    });
+
+    $('#btnExportPdf').off('click').on('click', function() {
+      if (lastReportData.length === 0) { Swal.fire('Info', 'Tampilkan data laporan dahulu sebelum export.', 'info'); return; }
+      var docPdf = new window.jspdf.jsPDF();
+      docPdf.setFontSize(14);
+      docPdf.text('Laporan Presensi Makan Santri', 14, 15);
+      docPdf.autoTable({
+        startY: 22,
+        head: [['NIS', 'Nama', 'Kelas', 'Asrama', 'Sesi', 'Jenis', 'Tanggal', 'Jam']],
+        body: lastReportData.map(function(r) { return [r.nis, r.nama, r.kelas || '', r.asrama || '', r.session, (r.jenis === 'NAMBAH' ? 'Nambah' : 'Pertama'), r.tanggal, r.jam]; }),
+        styles: { fontSize: 9 }
+      });
+      docPdf.save('Laporan_Presensi_' + Utilities_todayStr() + '.pdf');
+    });
+
+    $('#btnExportExcel').off('click').on('click', function() {
+      if (lastReportData.length === 0) { Swal.fire('Info', 'Tampilkan data laporan dahulu sebelum export.', 'info'); return; }
+      var rows = lastReportData.map(function(r) {
+        return { NIS: r.nis, Nama: r.nama, Kelas: r.kelas || '', Asrama: r.asrama || '', Sesi: r.session, Jenis: (r.jenis === 'NAMBAH' ? 'Nambah' : 'Pertama'), Tanggal: r.tanggal, Jam: r.jam };
+      });
+      var ws = XLSX.utils.json_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Laporan');
+      XLSX.writeFile(wb, 'Laporan_Presensi_' + Utilities_todayStr() + '.xlsx');
+    });
+
+    // PENGATURAN LEMBAGA
+    $('#settingLogoUrl').off('input').on('input', function() {
+      var url = $(this).val().trim();
+      if (url) { $('#settingLogoPreview').attr('src', url).removeClass('d-none'); }
+      else { $('#settingLogoPreview').addClass('d-none'); }
+    });
+
+    $('#btnSaveSettings').off('click').on('click', function() {
+      var settingsData = {
+        namaPondok: $('#settingNamaPondok').val().trim(),
+        subJudul: $('#settingSubJudul').val().trim(),
+        logoUrl: $('#settingLogoUrl').val().trim(),
+        jedaNambahMenit: parseInt($('#settingJedaNambah').val(), 10) || 10
+      };
+      var $btn = $(this).prop('disabled', true).text('Menyimpan...');
+      callApi('saveSettings', { settingsData: settingsData }, function(res) {
+        $btn.prop('disabled', false).text('Simpan Pengaturan');
+        if (res && res.success) {
+          Swal.fire({ icon: 'success', title: 'Tersimpan', text: res.message, timer: 1500, showConfirmButton: false });
+          loadAppSettings();
+        } else {
+          Swal.fire('Gagal', (res && res.message) ? res.message : 'Gagal menyimpan pengaturan.', 'error');
+        }
+      });
+    });
+
+    $('#btnSamakanJadwal').off('click').on('click', function() {
+      var senin = {};
+      $('#jadwalMakanBody tr[data-hari="senin"] .jadwal-input').each(function() {
+        senin[$(this).data('session') + '_' + $(this).data('field')] = $(this).val();
+      });
+      $('#jadwalMakanBody tr').not('[data-hari="senin"]').each(function() {
+        $(this).find('.jadwal-input').each(function() {
+          var key = $(this).data('session') + '_' + $(this).data('field');
+          $(this).val(senin[key]);
+        });
+      });
+      Swal.fire({ icon: 'success', title: 'Disamakan', text: 'Jadwal Senin diterapkan ke semua hari. Jangan lupa klik Simpan Jadwal Makan.', timer: 2000, showConfirmButton: false });
+    });
+
+    $('#btnSaveJadwal').off('click').on('click', function() {
+      var jadwalMakan = collectJadwalMakanFromForm();
+      var $btn = $(this).prop('disabled', true).text('Menyimpan...');
+      callApi('saveSettings', { settingsData: { jadwalMakan: jadwalMakan } }, function(res) {
+        $btn.prop('disabled', false).text('Simpan Jadwal Makan');
+        if (res && res.success) {
+          Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Jadwal makan berhasil disimpan.', timer: 1500, showConfirmButton: false });
+          applyJadwalMakanToKiosk(jadwalMakan);
+        } else {
+          Swal.fire('Gagal', (res && res.message) ? res.message : 'Gagal menyimpan jadwal makan.', 'error');
+        }
+      });
+    });
+  }
+
+  function Utilities_todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function switchView(viewName) {
+    $('.view-section').addClass('d-none');
+    $('#view-' + viewName).removeClass('d-none');
+
+    if (viewName === 'scanMode') {
+      initCameraScanner();
+    } else {
+      stopCameraScanner();
+    }
+
+    if (viewName === 'santri') loadSantriTable();
+    if (viewName === 'cards') renderCards();
+    if (viewName === 'reports') loadReportFilterOptions();
+    if (viewName === 'settings') loadSettingsForm();
+    if (viewName === 'dashboard') {
+      if (!$('#dashboardFilterDate').val()) {
+        $('#dashboardFilterDate').val(Utilities_todayStr());
+        $('#dashboardFilterSession').val($('#scanSessionSelect').val() || 'pagi');
+      }
+      loadDashboardAnalytics();
+    }
+  }
+
+  function loadReportFilterOptions() {
+    if ($('#filterKelas option').length > 1) return; // sudah pernah dimuat
+    callApi('getAllSantri', {}, function(res) {
+      if (res && res.success) {
+        var kelasSet = {}, asramaSet = {};
+        res.data.forEach(function(s) {
+          if (s.kelas) kelasSet[s.kelas] = true;
+          if (s.asrama) asramaSet[s.asrama] = true;
+        });
+        Object.keys(kelasSet).sort().forEach(function(k) {
+          $('#filterKelas').append('<option value="' + k + '">' + k + '</option>');
+        });
+        Object.keys(asramaSet).sort().forEach(function(a) {
+          $('#filterAsrama').append('<option value="' + a + '">' + a + '</option>');
+        });
+      }
+    });
+  }
+
+  function loadSettingsForm() {
+    callApi('getSettings', {}, function(res) {
+      if (res && res.success && res.data) {
+        var s = res.data;
+        $('#settingNamaPondok').val(s.namaPondok || '');
+        $('#settingSubJudul').val(s.subJudul || '');
+        $('#settingLogoUrl').val(s.logoUrl || '');
+        $('#settingJedaNambah').val(s.jedaNambahMenit || 10);
+        if (s.logoUrl) {
+          $('#settingLogoPreview').attr('src', s.logoUrl).removeClass('d-none');
+        }
+        renderJadwalMakanTable(s.jadwalMakan || {});
+      }
+    });
+  }
+
+  // EXECUTE LOGIN ADMIN
+  function executeLogin() {
+    var user = $('#loginUser').val();
+    var pass = $('#loginPass').val();
+
+    if (!user || !pass) {
+      Swal.fire('Peringatan', 'Username dan Password wajib diisi!', 'warning');
+      return;
+    }
+
+    callApi('login', { username: user, password: pass }, function(res) {
+      if (res && res.success) {
+        isAdminLoggedIn = true;
+        
+        var modalEl = document.getElementById('loginModal');
+        if (modalEl) {
+          var modal = bootstrap.Modal.getInstance(modalEl);
+          if (modal) modal.hide();
+        }
+
+        $('#adminSidebar').removeClass('d-none');
+        $('#mainContentArea').removeClass('col-12').addClass('col-md-9 col-lg-10');
+        $('#lblAdminAccess').text('Panel Admin Active');
+        
+        Swal.fire({ icon: 'success', title: 'Login Berhasil', timer: 1500, showConfirmButton: false });
+        switchView('dashboard');
+      } else {
+        Swal.fire('Gagal Login', (res && res.message) ? res.message : 'Username atau Password salah!', 'error');
+      }
+    });
+  }
+
+function loadDashboardData() {
+  var currentSession = $('#scanSessionSelect').val() || 'pagi';
+
+  callApi('getDashboardStats', { session: currentSession, gender: getGenderFilter_() }, function(res) {
+    if (res && res.success) {
+      var d = res.data;
+      $('#mbTotalSantri').text(d.totalSantri || 0);
+      $('#mbSudahMakan').text(d[currentSession] || 0);
+      $('#mbBelumMakan').text(d.belumMakan || 0);
+      $('#mbPersentase').text(d.persentase || '0%');
+      $('#mbNambah2x').text(d.count2x || 0);
+      $('#mbSantriPuasa').text(d.countPuasa || 0); // Update Card Puasa
+
+      var listHtml = '';
+      if (d.recentScans && d.recentScans.length > 0) {
+        d.recentScans.forEach(function(s) {
+          var badgeSahur = s.isSahur ? ' <span class="badge bg-warning text-dark"><i class="bi bi-moon-stars"></i> Sahur</span>' : '';
+          listHtml += '<li class="list-group-item d-flex justify-content-between align-items-center">' +
+            '<div><strong>' + s.nama + '</strong>' + badgeSahur + '<br><small class="text-muted">' + s.kelas + ' - ' + s.asrama + '</small></div>' +
+            '<span class="badge bg-emerald">' + s.jam + '</span>' +
+          '</li>';
+        });
+      } else {
+        listHtml = '<li class="list-group-item text-muted">Belum ada scan sesi ini</li>';
+      }
+      $('#recentScanList').html(listHtml);
+    }
+  });
+
+  // Grafik batang "Presensi Makan Hari Ini" sebelumnya statis (dibuat sekali saat load awal
+  // lalu tidak pernah diambil ulang datanya). Sekarang ikut di-refresh setiap loadDashboardData()
+  // dipanggil - yaitu setiap kali ada scan/nambah - supaya selalu mencerminkan data terbaru.
+  updateChartKehadiran();
+}
+
+function updateChartKehadiran() {
+  callApi('getTodayChartData', { gender: getGenderFilter_() }, function(res) {
+    if (res && res.success && chartInstance) {
+      var d = res.data || {};
+      chartInstance.data.datasets[0].data = [d.pagi || 0, d.siang || 0, d.malam || 0];
+      chartInstance.update();
+    }
+  });
+}
+
+// Tampilkan daftar santri untuk kategori metrik yang diklik (Total/Puasa/Sudah Makan/Nambah/Belum Makan).
+// Selalu pakai sesi kios yang sedang aktif (#scanSessionSelect) & tanggal hari ini, sama seperti
+// yang ditampilkan di kartu metrik ringkas itu sendiri.
+function showDashboardDetail(kategori, judul) {
+  var session = $('#scanSessionSelect').val() || 'pagi';
+
+  $('#detailMetrikTitle').html('<i class="bi bi-list-check me-2"></i>' + judul);
+  $('#detailMetrikBody').html('<tr><td colspan="5" class="text-center text-muted py-4">Memuat data...</td></tr>');
+
+  var modalEl = document.getElementById('detailMetrikModal');
+  var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  modal.show();
+
+  callApi('getDashboardDetail', { session: session, kategori: kategori, gender: getGenderFilter_() }, function(res) {
+    if (res && res.success) {
+      var list = res.data || [];
+      if (list.length === 0) {
+        $('#detailMetrikBody').html('<tr><td colspan="5" class="text-center text-muted py-4">Tidak ada data untuk kategori ini</td></tr>');
+        return;
+      }
+      var html = '';
+      list.forEach(function(s, i) {
+        html += '<tr><td>' + (i + 1) + '</td><td>' + s.nis + '</td><td><strong>' + s.nama + '</strong></td><td>' + (s.kelas || '-') + '</td><td>' + (s.asrama || '-') + '</td></tr>';
+      });
+      $('#detailMetrikBody').html(html);
+    } else {
+      $('#detailMetrikBody').html('<tr><td colspan="5" class="text-center text-danger py-4">Gagal memuat data' + (res && res.message ? (': ' + res.message) : '') + '</td></tr>');
+    }
+  });
+}
+
+// Dashboard historis: admin memilih tanggal & sesi bebas (mis. cek sarapan pagi kemarin),
+// terpisah dari loadDashboardData() yang selalu menampilkan data live hari ini untuk operator
+// kios. Yang di-update hanya grafik + daftar aktivitas di tab Dashboard - kartu metrik ringkas
+// di layar scan tetap live mengikuti sesi kios, tidak ikut berubah oleh filter ini.
+function loadDashboardAnalytics() {
+  var tanggal = $('#dashboardFilterDate').val() || Utilities_todayStr();
+  var session = $('#dashboardFilterSession').val() || 'pagi';
+  var isToday = (tanggal === Utilities_todayStr());
+  var labelMap = { pagi: 'Sarapan Pagi', siang: 'Makan Siang', malam: 'Makan Malam' };
+
+  $('#dashboardFilterInfo').text(
+    (isToday ? 'Menampilkan data hari ini' : 'Menampilkan data tanggal ' + tanggal) +
+    ' - sesi ' + (labelMap[session] || session) + '.'
+  );
+
+  callApi('getDashboardStats', { session: session, tanggal: tanggal, gender: getGenderFilter_() }, function(res) {
+    if (res && res.success) {
+      var d = res.data;
+      var listHtml = '';
+      if (d.recentScans && d.recentScans.length > 0) {
+        d.recentScans.forEach(function(s) {
+          var badgeSahur = s.isSahur ? ' <span class="badge bg-warning text-dark"><i class="bi bi-moon-stars"></i> Sahur</span>' : '';
+          listHtml += '<li class="list-group-item d-flex justify-content-between align-items-center">' +
+            '<div><strong>' + s.nama + '</strong>' + badgeSahur + '<br><small class="text-muted">' + s.kelas + ' - ' + s.asrama + '</small></div>' +
+            '<span class="badge bg-emerald">' + s.jam + '</span>' +
+          '</li>';
+        });
+      } else {
+        listHtml = '<li class="list-group-item text-muted">Tidak ada data scan untuk sesi/tanggal ini</li>';
+      }
+      $('#recentScanList').html(listHtml);
+    }
+  });
+
+  callApi('getTodayChartData', { tanggal: tanggal, gender: getGenderFilter_() }, function(res) {
+    if (res && res.success && chartInstance) {
+      var d = res.data || {};
+      chartInstance.data.datasets[0].data = [d.pagi || 0, d.siang || 0, d.malam || 0];
+      chartInstance.update();
+    }
+  });
+}
+
+  // Memakai Html5Qrcode (API level-rendah) alih-alih Html5QrcodeScanner (widget siap-pakai).
+  // Alasan: widget siap-pakai menyisipkan UI tambahan sendiri (dropdown pilih kamera, tombol,
+  // link "Stop Scanning") yang membuat tinggi #reader berubah-ubah antara sebelum & sesudah
+  // kamera aktif - persis penyebab layar perlu di-scroll. Dengan API ini, HANYA elemen <video>
+  // yang dirender di dalam #reader, dan ukurannya kita kunci penuh lewat CSS (.scan-reader-box).
+  function initCameraScanner() {
+    if (html5Qrcode) return;
+    try {
+      html5Qrcode = new Html5Qrcode("reader");
+    } catch (e) {
+      console.warn('Gagal inisialisasi pustaka kamera:', e);
+      showNoCameraFallback();
+      return;
+    }
+
+    Html5Qrcode.getCameras().then(function(devices) {
+      if (!devices || devices.length === 0) {
+        throw new Error('Tidak ada kamera terdeteksi pada perangkat ini');
+      }
+
+      // Urutkan supaya kamera DEPAN (front/user/facetime) ada di depan daftar -
+      // itu yang dipakai pertama kali, tapi admin tetap bisa pindah ke kamera belakang
+      // lewat tombol ganti kamera kalau diperlukan.
+      cameraDeviceList = devices.slice().sort(function(a, b) {
+        var aFront = /front|user|face/i.test(a.label || '') ? 0 : 1;
+        var bFront = /front|user|face/i.test(b.label || '') ? 0 : 1;
+        return aFront - bFront;
+      });
+      activeCameraIndex = 0;
+
+      $('#btnSwitchCamera').toggleClass('d-none', cameraDeviceList.length <= 1);
+
+      return startCameraAt(activeCameraIndex);
+    }).catch(function(err) {
+      // Perangkat tanpa kamera fisik akan gagal di sini (mis. "NotFoundError: Requested
+      // device not found") - ini normal, ditangani sepenuhnya di sini, TIDAK memengaruhi
+      // fitur lain (login, data santri, dll tetap jalan lewat Barcode Scanner USB).
+      console.warn('Kamera tidak tersedia:', (err && err.message) ? err.message : err);
+      showNoCameraFallback();
+    });
+  }
+
+  function showNoCameraFallback() {
+    isCameraRunning = false;
+    $('#reader').html(
+      '<div class="p-3 text-center text-white d-flex flex-column align-items-center justify-content-center h-100">' +
+        '<i class="bi bi-camera-video-off fs-1 text-warning"></i>' +
+        '<h6 class="mt-2 text-warning mb-1">Kamera Tidak Tersedia</h6>' +
+        '<p class="small text-white-50 mb-0">Gunakan Barcode Scanner USB di bawah ini.</p>' +
+      '</div>'
+    );
+  }
+
+  function startCameraAt(index) {
+    var cam = cameraDeviceList[index];
+    if (!cam) return Promise.reject(new Error('Kamera tidak ditemukan'));
+    return html5Qrcode.start(
+      cam.id,
+      { fps: 10, qrbox: function(viewfinderWidth, viewfinderHeight) {
+          // Ukuran area target scan dihitung dinamis dari ukuran video yang benar-benar
+          // dirender (bukan angka tetap), supaya tidak pernah lebih besar/mepet dengan
+          // kotak kamera - itu penyebab kamera gagal start pada perubahan sebelumnya.
+          var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          var size = Math.floor(minEdge * 0.7);
+          return { width: size, height: size };
+        }
+      },
+      function(decodedText) { executeScanProcess(decodedText, 'kamera'); },
+      function() { /* frame tanpa kode terbaca - abaikan, ini dipanggil terus-menerus */ }
+    ).then(function() {
+      isCameraRunning = true;
+    });
+  }
+
+  function switchCamera() {
+    if (!html5Qrcode || !isCameraRunning || cameraDeviceList.length <= 1) return;
+    var $btn = $('#btnSwitchCamera').prop('disabled', true);
+    html5Qrcode.stop().then(function() {
+      isCameraRunning = false;
+      activeCameraIndex = (activeCameraIndex + 1) % cameraDeviceList.length;
+      return startCameraAt(activeCameraIndex);
+    }).catch(function(e) {
+      console.warn(e);
+    }).finally(function() {
+      $btn.prop('disabled', false);
+    });
+  }
+
+  function stopCameraScanner() {
+    if (html5Qrcode && isCameraRunning) {
+      // Hanya panggil .stop() kalau kamera BENAR-BENAR sedang berjalan - memanggilnya pada
+      // scanner yang belum pernah start (mis. perangkat tanpa kamera fisik) memicu error
+      // "Cannot stop, scanner is not running or paused."
+      html5Qrcode.stop().then(function() {
+        isCameraRunning = false;
+        html5Qrcode.clear();
+        html5Qrcode = null;
+      }).catch(function(e) {
+        console.warn(e);
+        isCameraRunning = false;
+        html5Qrcode = null;
+      });
+    } else {
+      html5Qrcode = null;
+      isCameraRunning = false;
+    }
+    cameraDeviceList = [];
+    activeCameraIndex = 0;
+    $('#btnSwitchCamera').addClass('d-none');
+  }
+
+  function setupHIDListener() {
+    $('#hidInput').off('keypress').on('keypress', function(e) {
+      if (e.which === 13) {
+        var code = $(this).val().trim();
+        if (code) {
+          if (isScanLocked) {
+            $(this).val('');
+            return;
+          }
+          executeScanProcess(code, 'barcode');
+          $(this).val('');
+        }
+      }
+    });
+  }
+
+  function executeScanProcess(code, method) {
+  if (isScanLocked) return;
+  isScanLocked = true;
+
+  $('#scanStatusCard').removeClass('bg-scan-success bg-scan-warning bg-scan-danger').addClass('bg-scan-idle');
+  $('#scanStatusContent').html(
+    '<div class="spinner-border text-emerald mb-2" style="width:2.4rem;height:2.4rem;" role="status"></div>' +
+    '<h4 class="fw-bold text-muted mb-0" style="font-size:1rem;">Memproses Presensi...</h4>'
+  );
+
+  var session = $('#scanSessionSelect').val();
+
+  // Memanggil API tanpa perlu toggle sahur (logic waktu dikerjakan oleh backend).
+  // Dipakai callApiQueueable (bukan callApi biasa) supaya kalau koneksi gagal saat ini,
+  // presensi otomatis diamankan ke antrean lokal alih-alih hilang begitu saja.
+  callApiQueueable('processScan', { barcode: code, device: 'Blogger-Kantin', session: session, metode: method }, function(res, queued) {
+    if (queued) {
+      renderQueuedScan_(code, session);
+      return;
+    }
+    renderScanResult(res, session);
+    loadDashboardData();
+  });
+}
+
+// Tampilan saat presensi GAGAL terkirim ke server karena masalah koneksi (BUKAN berarti
+// gagal dicatat) - data sudah aman tersimpan di perangkat ini dan akan otomatis terkirim
+// begitu koneksi kembali stabil. Cooldown dibuat lebih singkat dari biasanya supaya
+// petugas bisa langsung lanjut men-scan santri berikutnya walau sedang offline.
+function renderQueuedScan_(code, session) {
+  playAudioWarning();
+  showTerminalResult('bg-scan-warning',
+    '<div class="scan-icon-circle mb-2"><i class="bi bi-cloud-arrow-up"></i></div>' +
+    '<h2 class="fw-bold mb-1" style="font-size:1.3rem;">TERSIMPAN, MENUNGGU KONEKSI</h2>' +
+    '<p class="mb-1" style="font-size:.85rem;">Koneksi ke server sedang bermasalah. Presensi sudah tersimpan aman di perangkat ini dan akan otomatis terkirim begitu koneksi pulih.</p>' +
+    '<p class="mt-1 opacity-75" style="font-size:.75rem;">Kode: ' + code + ' • Sesi: ' + session + '</p>',
+    3000
+  );
+}
+
+  // Mengembalikan kios ke tampilan siaga (idle), lalu melepas kunci scan berikutnya
+  function revertToIdle() {
+    $('#scanStatusCard').removeClass('bg-scan-success bg-scan-warning bg-scan-danger').addClass('bg-scan-idle');
+    $('#scanStatusContent').html(
+      '<div class="scan-icon-circle mb-2"><i class="bi bi-qr-code-scan"></i></div>' +
+      '<h2 class="mt-1 fw-bold" style="font-size:1.4rem;">SILAKAN SCAN KARTU MAKAN</h2>' +
+      '<p class="text-muted mb-0" style="font-size:.85rem;">Dekatkan Barcode / QR Code pada Kamera Tablet atau Scanner USB</p>'
+    );
+    isScanLocked = false;
+  }
+
+  // Menampilkan hasil akhir (bukan prompt konfirmasi) lalu menjadwalkan kembali ke siaga
+  function showTerminalResult(bgClass, html, cooldownMs) {
+    var card = $('#scanStatusCard');
+    card.removeClass('bg-scan-idle bg-scan-success bg-scan-warning bg-scan-danger').addClass(bgClass);
+    $('#scanStatusContent').html(html + '<p class="mt-1 opacity-75" style="font-size:.7rem;"><i class="bi bi-hourglass-split me-1"></i>Jeda scan berikutnya...</p>');
+    setTimeout(revertToIdle, cooldownMs || SCAN_COOLDOWN_MS);
+  }
+
+  function renderScanResult(res, session) {
+    var card = $('#scanStatusCard');
+    var content = $('#scanStatusContent');
+    var status = (res && res.data) ? res.data.status : null;
+
+    card.removeClass('bg-scan-idle bg-scan-success bg-scan-warning bg-scan-danger');
+
+    if (res && res.success && status === 'SUCCESS') {
+      var s = res.data.santri;
+      playAudioSuccess();
+      showTerminalResult('bg-scan-success',
+        buildAvatarImgTag_(s.fotoUrl, s.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 84) +
+        '<h1 class="fw-bold mb-0" style="font-size:1.4rem;">SILAKAN MAKAN</h1>' +
+        '<h2 class="fw-bold m-0" style="font-size:1.1rem;">' + s.nama + '</h2>' +
+        '<div class="mt-1 badge bg-white text-dark px-2 py-1 rounded-pill" style="font-size:.75rem;">Kelas: ' + s.kelas + ' | Asrama: ' + s.asrama + '</div>' +
+        '<p class="mt-1 mb-0 opacity-75" style="font-size:.75rem;">NIS: ' + s.nis + ' • Jam Scan: ' + res.data.jam + '</p>'
+      );
+
+    } else if (status === 'ALREADY_SCANNED') {
+      var s2 = res.data.santri;
+      playAudioWarning();
+      showTerminalResult('bg-scan-warning',
+        buildAvatarImgTag_(s2.fotoUrl, s2.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 80) +
+        '<h1 class="fw-bold mb-0" style="font-size:1.4rem;">MASIH JEDA MAKAN</h1>' +
+        '<h2 class="mb-0" style="font-size:1.05rem;">' + s2.nama + '</h2>' +
+        '<h4 class="mt-1" style="font-size:.85rem;">Kelas: ' + s2.kelas + ' | Asrama: ' + s2.asrama + '</h4>' +
+        '<p class="mt-1 mb-0" style="font-size:.8rem;">Tercatat makan pukul: ' + res.data.jamSebelumnya + '</p>' +
+        '<p class="mb-0" style="font-size:.8rem;">Boleh nambah setelah jeda ' + (res.data.remainingMinutes || 0) + ' menit lagi.</p>'
+      );
+
+    } else if (status === 'ELIGIBLE_FOR_SECOND') {
+      // Jeda makan sudah lewat -> tawarkan opsi nambah, TUNGGU santri menekan konfirmasi sendiri.
+      var s3 = res.data.santri;
+      card.addClass('bg-scan-warning');
+      content.html(
+        '<div class="d-flex align-items-center justify-content-center gap-3 flex-wrap">' +
+          '<div class="text-center">' +
+            buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 90) +
+            '<h2 class="fw-bold m-0" style="font-size:1.1rem;">' + s3.nama + '</h2>' +
+            '<div style="font-size:.8rem;">Kelas: ' + s3.kelas + ' | Asrama: ' + s3.asrama + '</div>' +
+          '</div>' +
+          '<div class="bg-white text-dark rounded-4 p-3 shadow-sm text-start" style="max-width:300px;">' +
+            '<p class="fw-bold mb-1" style="font-size:.9rem;">Antum sudah makan pukul ' + res.data.jamSebelumnya + '.</p>' +
+            '<p class="mb-2" style="font-size:.85rem;">Apakah antum yakin ingin mengambil jatah makan yang kedua (nambah)?</p>' +
+            '<div class="d-flex gap-2 justify-content-center">' +
+              '<button class="btn btn-emerald btn-sm rounded-pill px-3 fw-bold" id="btnConfirmNambah"><i class="bi bi-check-lg me-1"></i>Ya, Saya Nambah</button>' +
+              '<button class="btn btn-outline-secondary btn-sm rounded-pill px-3" id="btnCancelNambah">Batal</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
+
+      // Tetap terkunci selama prompt tampil; batas waktu otomatis agar kios tidak macet jika diabaikan.
+      var autoCancelTimer = setTimeout(function() { revertToIdle(); }, 15000);
+
+      $('#btnConfirmNambah').off('click').on('click', function() {
+        clearTimeout(autoCancelTimer);
+        $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Memproses...');
+        $('#btnCancelNambah').prop('disabled', true);
+
+        callApiQueueable('confirmSecondMeal', { nis: s3.nis, session: session }, function(res2, queued2) {
+          if (queued2) {
+            playAudioWarning();
+            showTerminalResult('bg-scan-warning',
+              '<div class="scan-icon-circle mb-2"><i class="bi bi-cloud-arrow-up"></i></div>' +
+              '<h2 class="fw-bold mb-0" style="font-size:1.3rem;">TERSIMPAN, MENUNGGU KONEKSI</h2>' +
+              '<h2 class="fw-bold m-0" style="font-size:1.05rem;">' + s3.nama + '</h2>' +
+              '<p class="mt-1" style="font-size:.8rem;">Koneksi ke server sedang bermasalah. Konfirmasi nambah sudah tersimpan aman di perangkat ini dan akan otomatis terkirim begitu koneksi pulih.</p>',
+              3000
+            );
+            loadDashboardData();
+            return;
+          }
+          var status2 = (res2 && res2.data) ? res2.data.status : null;
+          if (res2 && res2.success && status2 === 'SECOND_SUCCESS') {
+            playAudioSuccess();
+            showTerminalResult('bg-scan-success',
+              buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 80) +
+              '<h1 class="fw-bold mb-0" style="font-size:1.4rem;">SILAKAN NAMBAH!</h1>' +
+              '<h2 class="fw-bold m-0" style="font-size:1.05rem;">' + s3.nama + '</h2>' +
+              '<p class="mt-1 opacity-75" style="font-size:.8rem;">Makan kedua tercatat pukul ' + res2.data.jam + '</p>'
+            );
+          } else if (status2 === 'ALREADY_SECOND') {
+            playAudioWarning();
+            showTerminalResult('bg-scan-warning',
+              buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 80) +
+              '<h1 class="fw-bold mb-0" style="font-size:1.3rem;">SUDAH TERCATAT NAMBAH</h1>' +
+              '<p class="mt-1" style="font-size:.85rem;">' + s3.nama + ' sudah mengambil jatah kedua pukul ' + res2.data.jamNambah + '</p>'
+            );
+          } else {
+            playAudioDanger();
+            showTerminalResult('bg-scan-danger',
+              '<div class="scan-icon-circle mb-2"><i class="bi bi-x-circle"></i></div>' +
+              '<h1 class="fw-bold mb-0" style="font-size:1.3rem;">GAGAL MENCATAT</h1>' +
+              '<p class="mt-1" style="font-size:.85rem;">' + ((res2 && res2.message) || 'Silakan scan ulang.') + '</p>'
+            );
+          }
+          loadDashboardData();
+        });
+      });
+
+      $('#btnCancelNambah').off('click').on('click', function() {
+        clearTimeout(autoCancelTimer);
+        revertToIdle();
+      });
+
+    } else if (status === 'ALREADY_SECOND') {
+      var s4 = res.data.santri;
+      playAudioWarning();
+      showTerminalResult('bg-scan-warning',
+        buildAvatarImgTag_(s4.fotoUrl, s4.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 80) +
+        '<h1 class="fw-bold mb-0" style="font-size:1.3rem;">SUDAH MAKAN 2X HARI INI</h1>' +
+        '<h2 class="mb-0" style="font-size:1.05rem;">' + s4.nama + '</h2>' +
+        '<p class="mt-1" style="font-size:.8rem;">Makan pertama: ' + res.data.jamPertama + ' • Nambah: ' + res.data.jamNambah + '</p>'
+      );
+
+    } else {
+      playAudioDanger();
+      showTerminalResult('bg-scan-danger',
+        '<div class="scan-icon-circle mb-2"><i class="bi bi-x-circle"></i></div>' +
+        '<h1 class="fw-bold mb-0" style="font-size:1.3rem;">DATA TIDAK DITEMUKAN</h1>' +
+        '<p class="mt-1" style="font-size:.85rem;">Kode barcode/QR tidak terdaftar dalam database.</p>'
+      );
+    }
+  }
+
+  function playAudioSuccess() {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    osc.connect(ctx.destination);
+    osc.frequency.value = 800;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  }
+
+  function playAudioWarning() {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.connect(ctx.destination);
+    osc.frequency.value = 350;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  }
+
+  function playAudioDanger() {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.connect(ctx.destination);
+    osc.frequency.value = 180;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  }
+
+  function initChart() {
+    var ctx = document.getElementById('chartKehadiran').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Sarapan Pagi', 'Makan Siang', 'Makan Malam'],
+        datasets: [{ label: 'Kehadiran Santri', data: [0, 0, 0], backgroundColor: ['#059669', '#10b981', '#34d399'], borderRadius: 8 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+
+  var allSantriCache = {}; // cache data santri by NIS, diisi ulang tiap loadSantriTable() - dipakai untuk isi form Edit
+
+  function loadSantriTable() {
+    callApi('getAllSantri', {}, function(res) {
+      if (res && res.success) {
+        var html = '';
+        allSantriCache = {};
+        res.data.forEach(function(s) {
+          allSantriCache[s.nis] = s;
+          html += '<tr><td>' + s.nis + '</td><td><strong>' + s.nama + '</strong></td><td>' + s.jk + '</td><td>' + s.kelas + '</td><td>' + s.asrama + '</td><td><span class="badge bg-emerald-light text-dark">' + s.status + '</span></td>' +
+            '<td><button class="btn btn-sm btn-outline-emerald border-emerald text-emerald me-1" onclick="editSantri(\'' + s.nis + '\')"><i class="bi bi-pencil-square"></i></button>' +
+            '<button class="btn btn-sm btn-outline-danger" onclick="deleteSantri(\'' + s.nis + '\')"><i class="bi bi-trash"></i></button></td></tr>';
+        });
+        $('#santriTableBody').html(html);
+        if (!$.fn.DataTable.isDataTable('#tableSantri')) { $('#tableSantri').DataTable(); }
+      }
+    });
+  }
+
+  // Buka modal santri dalam mode Edit, isi form dari cache, kunci NIS (NIS = ID dokumen di
+  // Firestore - kalau boleh diubah bebas saat edit, hasilnya bukan mengganti data yang ada,
+  // tapi membuat dokumen BARU dan data lama jadi sampah/orphan di database).
+  function editSantri(nis) {
+    var s = allSantriCache[nis];
+    if (!s) return;
+
+    $('#formSantri')[0].reset();
+    $('#santriModalTitle').html('<i class="bi bi-pencil-square me-2"></i>Edit Santri');
+    $('#inputNis').val(s.nis).prop('readonly', true).addClass('bg-light');
+    $('#inputNisHint').text('NIS tidak bisa diubah saat mode edit (dipakai sebagai ID data).');
+    $('#inputNama').val(s.nama || '');
+    $('#inputJk').val(s.jk || 'L');
+    $('#inputKelas').val(s.kelas || '');
+    $('#inputAsrama').val(s.asrama || '');
+    $('#inputFoto').val(s.fotoUrl || '');
+    $('#inputStatus').val(s.status || 'Aktif');
+
+    var modalEl = document.getElementById('santriModal');
+    var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+
+  function deleteSantri(nis) {
+    Swal.fire({ title: 'Hapus Santri?', text: "NIS: " + nis + " akan dihapus!", icon: 'warning', showCancelButton: true, confirmButtonText: 'Hapus' }).then(function(r) {
+      if (r.isConfirmed) {
+        callApi('deleteSantri', { nis: nis }, function(res) {
+          Swal.fire('Terhapus!', res.message, 'success');
+          loadSantriTable();
+        });
+      }
+    });
+  }
+
+  var lastCardData_ = null; // simpan hasil terakhir supaya ganti format barcode tidak perlu fetch ulang ke server
+
+  function renderCards() {
+    callApi('generateCardData', {}, function(res) {
+      if (res && res.success) {
+        lastCardData_ = res.data;
+        drawCardsHtml_(res.data);
+      }
+    });
+  }
+
+  function drawCardsHtml_(data) {
+    var barcodeFormat = $('#cardBarcodeFormat').val() || 'CODE128';
+    var todayStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    var cardsHtml = '';
+    data.forEach(function(s) {
+      cardsHtml += '<div class="id-card-pair">' +
+        '<div class="id-card-cr80">' +
+          '<div class="d-flex align-items-center border-bottom pb-1 mb-2 id-card-header">' +
+            '<svg class="id-card-accent-text me-2" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">' +
+              '<path d="M3 1a1 1 0 0 0-1 1v13h2V3h6v12h2V2a1 1 0 0 0-1-1H3z"></path>' +
+              '<path d="M6 5h1v1H6V5zm0 3h1v1H6V8zm0 3h1v1H6v-1zM9 5h1v1H9V5zm0 3h1v1H9V8zm0 3h1v1H9v-1z"></path>' +
+            '</svg>' +
+            '<span class="fw-bold text-dark" style="font-size: 10px;">PONDOK PESANTREN IDRISIYYAH</span>' +
+          '</div>' +
+          '<div class="row g-0 align-items-center">' +
+            '<div class="col-4 text-center">' + buildAvatarImgTag_(s.fotoUrl, s.jk, 'rounded border', 55, 65) + '</div>' +
+            '<div class="col-8 ps-2" style="font-size: 11px;">' +
+              '<div class="fw-bold text-truncate text-dark">' + s.nama + '</div>' +
+              '<div>NIS: ' + s.nis + '</div>' +
+              '<div>Kelas: ' + s.kelas + '</div>' +
+              '<div class="card-asrama-line">Asrama: ' + s.asrama + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="text-center mt-2"><svg id="barcode_' + s.nis + '"></svg></div>' +
+        '</div>' +
+        '<div class="id-card-cr80 id-card-cr80-back">' +
+          '<div>' +
+            '<div class="id-card-back-title">Ketentuan Penggunaan</div>' +
+            '<ol class="id-card-back-list">' +
+              '<li>Kartu ini milik Pondok Pesantren Idrisiyyah.</li>' +
+              '<li>Wajib dibawa saat mengambil jatah makan di i-Canteen.</li>' +
+              '<li>Tidak dapat dipindahtangankan kepada santri lain.</li>' +
+              '<li>Jika hilang, segera laporkan ke bagian administrasi.</li>' +
+              '<li>Dilarang merusak barcode atau melubangi kartu.</li>' +
+            '</ol>' +
+          '</div>' +
+          '<div class="id-card-back-footer"><span>Dicetak: ' + todayStr + '</span><svg id="barcode_back_' + s.nis + '"></svg></div>' +
+        '</div>' +
+      '</div>';
+    });
+    $('#printableArea').html(cardsHtml);
+    $('#cardPrintCount').text('(' + data.length + ')');
+    data.forEach(function(s) {
+      // Dibungkus try/catch: format seperti EAN-13 mensyaratkan panjang digit tertentu,
+      // supaya NIS yang tidak cocok tidak menghentikan render seluruh kartu lainnya.
+      try { JsBarcode('#barcode_' + s.nis, s.nis, { format: barcodeFormat, height: 22, displayValue: false }); } catch (e) { console.warn('Barcode depan gagal untuk NIS ' + s.nis, e); }
+      try { JsBarcode('#barcode_back_' + s.nis, s.nis, { format: barcodeFormat, height: 14, width: 1, displayValue: false }); } catch (e) { console.warn('Barcode belakang gagal untuk NIS ' + s.nis, e); }
+    });
+  }
+
+  // Konfigurasi Desain: ganti tema warna kartu secara instan tanpa render ulang (pakai CSS variable)
+  $(document).on('click', '.card-theme-swatch', function() {
+    $('.card-theme-swatch').removeClass('active');
+    $(this).addClass('active');
+    var theme = $(this).data('theme');
+    $('#printableArea').removeClass('theme-emerald theme-dark theme-light').addClass(theme === 'emerald' ? '' : 'theme-' + theme);
+  });
+
+  $(document).on('change', '#cardShowAsrama', function() {
+    $('#printableArea').toggleClass('hide-asrama', !this.checked);
+  });
+
+  $(document).on('change', '#cardShowBack', function() {
+    $('#printableArea').toggleClass('hide-back', !this.checked);
+  });
+
+  // Ganti format barcode perlu render ulang SVG barcode-nya (JsBarcode tidak bisa update format in-place)
+  $(document).on('change', '#cardBarcodeFormat', function() {
+    if (lastCardData_) drawCardsHtml_(lastCardData_);
+  });
+
+  // Cetak: clone HTML preview (SUDAH termasuk SVG barcode yang digambar JsBarcode) ke
+  // #cardPrintHost yang terletak di luar layout aplikasi, supaya bebas dari efek
+  // overflow/scroll panel preview. Ikut menyalin class tema/toggle yang sedang aktif.
+  function printCards() {
+    var src = document.getElementById('printableArea');
+    var host = document.getElementById('cardPrintHost');
+    if (!src || !host) { window.print(); return; }
+    host.className = src.className;
+    host.innerHTML = src.innerHTML;
+    window.print();
+  }
+  window.addEventListener('afterprint', function() {
+    var host = document.getElementById('cardPrintHost');
+    if (host) host.innerHTML = '';
+  });
+//]]>
+</script>
