@@ -1052,11 +1052,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+<!-- BACKEND: SUPABASE (menggantikan Google Apps Script) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/api.js"></script>
+<script src="js/realtime.js"></script>
+
 <script>
 //<![CDATA[
-  // URL BACKEND GOOGLE APPS SCRIPT WEB APP
-  var GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwvneGethFl7EmMRKp3xIolpNlHbfuI-bsT6Ef_O7bc4etRsv-r0yhRQsOoGbVoABL-6A/exec";
-
   var isAdminLoggedIn = false;
   var isScanLocked = false;
   var SCAN_COOLDOWN_MS = 5000;
@@ -1296,6 +1299,12 @@ document.addEventListener('DOMContentLoaded', () => {
     bindEventListeners();
     updateOfflineQueueBadge_(); // tampilkan badge kalau ada sisa antrean dari sesi sebelumnya
     scheduleQueueFlush_(1000);  // langsung coba kirim sisa antrean begitu halaman dibuka
+
+    // Realtime: refresh dashboard otomatis begitu ada baris baru di tabel scan
+    // (mis. dari tablet/kios lain), tanpa perlu menunggu polling manual.
+    if (typeof subscribeScanRealtime === 'function') {
+      subscribeScanRealtime(function () { loadDashboardData(); });
+    }
   });
 
   function loadAppSettings() {
@@ -1450,27 +1459,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Kirim satu aksi ke server. TIDAK PERNAH melempar exception ke pemanggil - selalu
-  // resolve dengan { ok:true, data:<respon server> } (server terjangkau, apa pun isi
-  // responsnya) atau { ok:false } (gagal jaringan / timeout / respons tidak valid).
+  // Kirim satu aksi ke server (Supabase). TIDAK PERNAH melempar exception ke pemanggil -
+  // selalu resolve dengan { ok:true, data:<respon server> } (Supabase terjangkau, apa pun
+  // isi responsnya - termasuk kalau responsnya sendiri success:false) atau { ok:false }
+  // (gagal jaringan / offline, sehingga aksi ini aman diamankan ke antrean lokal).
   function sendToServer_(action, payload, timeoutMs) {
-    var body = {};
-    for (var k in payload) body[k] = payload[k];
-    body.action = action;
-
-    return fetchWithTimeout_(GAS_WEB_APP_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(body)
-    }, timeoutMs || 15000)
-      .then(function (response) { return response.text(); })
-      .then(function (textData) {
-        var resObj;
-        try {
-          resObj = (typeof textData === 'object' && textData !== null) ? textData : JSON.parse(textData);
-        } catch (err) {
-          return { ok: false, reason: 'parse' };
-        }
+    return window.supabaseApi(action, payload)
+      .then(function (resObj) {
         return { ok: true, data: resObj };
       })
       .catch(function (err) {
@@ -1557,46 +1552,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // tapi tidak benar-benar putus).
   setInterval(flushOfflineQueue, 8000);
 
-  // API BRIDGE AMAN (Dua Lapis Proteksi JSON.parse)
+  // API BRIDGE - meneruskan ke Supabase (js/api.js) sambil mempertahankan gaya
+  // callback lama supaya seluruh pemanggilan callApi(...) di file ini tidak perlu diubah.
   function callApi(action, payload, callback) {
     if (!payload) payload = {};
-    payload.action = action;
-
-    // Menggunakan Fetch API secara langsung agar lebih stabil di Blogger & Chromebook
-    fetch(GAS_WEB_APP_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-      return response.text(); // Ambil mentahannya sebagai Text dulu
-    })
-    .then(function(textData) {
-      var resObj;
-      try {
-        // Cek apakah berupa Object atau String sebelum di-parse
-        if (typeof textData === 'object' && textData !== null) {
-          resObj = textData;
-        } else {
-          resObj = JSON.parse(textData);
-        }
-      } catch (err) {
-        console.error("Gagal parse respon JSON:", textData);
-        resObj = { success: false, message: "Respon server tidak valid" };
-      }
-      if (callback) callback(resObj);
-    })
-    .catch(function(error) {
-      console.error("Network / API Error:", error);
-      if (callback) callback({
-        success: false,
-        message: "Tidak bisa menghubungi server Apps Script sama sekali (bukan error login biasa). " +
-                  "Penyebab paling umum: (1) belum membuat deployment versi BARU setelah update kode " +
-                  "(Deploy > Manage deployments > edit > New version > Deploy), atau (2) GAS_WEB_APP_URL " +
-                  "di kode tidak sama dengan URL Web App yang aktif. Coba buka URL itu langsung di tab " +
-                  "browser baru untuk memastikan responnya berupa JSON, bukan halaman error/login Google."
+    window.supabaseApi(action, payload)
+      .then(function (resObj) {
+        if (callback) callback(resObj);
+      })
+      .catch(function (error) {
+        console.error("Supabase / Network Error:", error);
+        if (callback) callback({
+          success: false,
+          message: "Tidak bisa menghubungi Supabase. Periksa koneksi internet Anda, atau pastikan " +
+                    "SUPABASE_URL / SUPABASE_ANON_KEY di js/supabase-client.js sudah benar."
+        });
       });
-    });
   }
 
   // EVENT LISTENERS (Perbaikan Klik Admin Area)
@@ -1813,7 +1784,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '</div>';
           Swal.fire({ title: 'Hasil Diagnosa', html: html, icon: (d.firestoreReadOk && d.firestoreWriteOk) ? 'success' : 'warning' });
         } else {
-          Swal.fire('Tidak Terhubung', (res && res.message) ? res.message : 'Tidak bisa menghubungi server Apps Script sama sekali. Cek GAS_WEB_APP_URL dan deployment.', 'error');
+          Swal.fire('Tidak Terhubung', (res && res.message) ? res.message : 'Tidak bisa menghubungi Supabase sama sekali. Cek koneksi internet dan konfigurasi di js/supabase-client.js.', 'error');
         }
       });
     });
