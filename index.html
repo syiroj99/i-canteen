@@ -330,6 +330,11 @@
   }
   .id-card-back-footer svg { height: 14px; }
 
+  /* Ukuran kode (QR canvas / barcode svg) di kartu - depan lebih besar, belakang mini */
+  .id-card-code-area { display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .id-card-qr { width: 26mm; height: 26mm; }
+  .id-card-qr-back { width: 12mm; height: 12mm; }
+
   /* PASANGAN DEPAN + BELAKANG - satu baris per santri, baik di layar preview
      maupun saat dicetak, supaya admin langsung melihat & mencetak keduanya sekaligus. */
   .id-card-pair {
@@ -716,11 +721,11 @@
                   <button type="button" class="card-theme-swatch" data-theme="light" title="Netral Abu-abu"></button>
                 </div>
 
-                <label class="form-label small fw-semibold mb-1">Format Barcode</label>
-                <select id="cardBarcodeFormat" class="form-select form-select-sm rounded-3 mb-3">
-                  <option value="CODE128" selected>Code 128 (Kepadatan Tinggi)</option>
-                  <option value="CODE39">Code 39</option>
-                  <option value="EAN13">EAN-13</option>
+                <label class="form-label small fw-semibold mb-1">Tipe Kode di Kartu</label>
+                <select id="cardCodeType" class="form-select form-select-sm rounded-3 mb-3">
+                  <option value="qr" selected>QR Code (disarankan - sesuai area baca kamera)</option>
+                  <option value="barcode">Barcode 1D (Code 128)</option>
+                  <option value="both">QR Code + Barcode (keduanya)</option>
                 </select>
 
                 <label class="form-label small fw-semibold mb-2 d-block">Tampilan Kartu</label>
@@ -1047,6 +1052,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -2592,10 +2598,18 @@ function renderQueuedScan_(code, session) {
   }
 
   function drawCardsHtml_(data) {
-    var barcodeFormat = $('#cardBarcodeFormat').val() || 'CODE128';
+    var codeType = $('#cardCodeType').val() || 'qr';
+    var showQr = (codeType === 'qr' || codeType === 'both');
+    var showBarcode = (codeType === 'barcode' || codeType === 'both');
     var todayStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
     var cardsHtml = '';
     data.forEach(function(s) {
+      var codeValue = s.barcode || s.nis;
+      var qrFrontHtml = showQr ? '<canvas id="qr_' + s.nis + '" class="id-card-qr"></canvas>' : '';
+      var barcodeFrontHtml = showBarcode ? '<svg id="barcode_' + s.nis + '"></svg>' : '';
+      var qrBackHtml = showQr ? '<canvas id="qr_back_' + s.nis + '" class="id-card-qr id-card-qr-back"></canvas>' : '';
+      var barcodeBackHtml = showBarcode ? '<svg id="barcode_back_' + s.nis + '"></svg>' : '';
+
       cardsHtml += '<div class="id-card-pair">' +
         '<div class="id-card-cr80">' +
           '<div class="d-flex align-items-center border-bottom pb-1 mb-2 id-card-header">' +
@@ -2614,7 +2628,7 @@ function renderQueuedScan_(code, session) {
               '<div class="card-asrama-line">Asrama: ' + s.asrama + '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="text-center mt-2"><svg id="barcode_' + s.nis + '"></svg></div>' +
+          '<div class="text-center mt-2 id-card-code-area">' + qrFrontHtml + barcodeFrontHtml + '</div>' +
         '</div>' +
         '<div class="id-card-cr80 id-card-cr80-back">' +
           '<div>' +
@@ -2624,20 +2638,31 @@ function renderQueuedScan_(code, session) {
               '<li>Wajib dibawa saat mengambil jatah makan di i-Canteen.</li>' +
               '<li>Tidak dapat dipindahtangankan kepada santri lain.</li>' +
               '<li>Jika hilang, segera laporkan ke bagian administrasi.</li>' +
-              '<li>Dilarang merusak barcode atau melubangi kartu.</li>' +
+              '<li>Dilarang merusak kode QR/barcode atau melubangi kartu.</li>' +
             '</ol>' +
           '</div>' +
-          '<div class="id-card-back-footer"><span>Dicetak: ' + todayStr + '</span><svg id="barcode_back_' + s.nis + '"></svg></div>' +
+          '<div class="id-card-back-footer"><span>Dicetak: ' + todayStr + '</span><div class="id-card-code-area">' + qrBackHtml + barcodeBackHtml + '</div></div>' +
         '</div>' +
       '</div>';
     });
     $('#printableArea').html(cardsHtml);
     $('#cardPrintCount').text('(' + data.length + ')');
     data.forEach(function(s) {
-      // Dibungkus try/catch: format seperti EAN-13 mensyaratkan panjang digit tertentu,
-      // supaya NIS yang tidak cocok tidak menghentikan render seluruh kartu lainnya.
-      try { JsBarcode('#barcode_' + s.nis, s.nis, { format: barcodeFormat, height: 22, displayValue: false }); } catch (e) { console.warn('Barcode depan gagal untuk NIS ' + s.nis, e); }
-      try { JsBarcode('#barcode_back_' + s.nis, s.nis, { format: barcodeFormat, height: 14, width: 1, displayValue: false }); } catch (e) { console.warn('Barcode belakang gagal untuk NIS ' + s.nis, e); }
+      var codeValue = s.barcode || s.nis;
+      if (showQr) {
+        try {
+          new QRious({ element: document.getElementById('qr_' + s.nis), value: codeValue, size: 130, level: 'M', padding: 0 });
+        } catch (e) { console.warn('QR depan gagal untuk NIS ' + s.nis, e); }
+        try {
+          new QRious({ element: document.getElementById('qr_back_' + s.nis), value: codeValue, size: 70, level: 'M', padding: 0 });
+        } catch (e) { console.warn('QR belakang gagal untuk NIS ' + s.nis, e); }
+      }
+      if (showBarcode) {
+        // Dibungkus try/catch: format seperti EAN-13 mensyaratkan panjang digit tertentu,
+        // supaya NIS yang tidak cocok tidak menghentikan render seluruh kartu lainnya.
+        try { JsBarcode('#barcode_' + s.nis, codeValue, { format: 'CODE128', height: 22, displayValue: false }); } catch (e) { console.warn('Barcode depan gagal untuk NIS ' + s.nis, e); }
+        try { JsBarcode('#barcode_back_' + s.nis, codeValue, { format: 'CODE128', height: 14, width: 1, displayValue: false }); } catch (e) { console.warn('Barcode belakang gagal untuk NIS ' + s.nis, e); }
+      }
     });
   }
 
@@ -2657,8 +2682,8 @@ function renderQueuedScan_(code, session) {
     $('#printableArea').toggleClass('hide-back', !this.checked);
   });
 
-  // Ganti format barcode perlu render ulang SVG barcode-nya (JsBarcode tidak bisa update format in-place)
-  $(document).on('change', '#cardBarcodeFormat', function() {
+  // Ganti tipe kode perlu render ulang HTML kartu (canvas QR / SVG barcode tidak bisa update format in-place)
+  $(document).on('change', '#cardCodeType', function() {
     if (lastCardData_) drawCardsHtml_(lastCardData_);
   });
 
