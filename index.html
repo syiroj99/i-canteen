@@ -437,6 +437,16 @@
       margin: 10mm;
     }
 
+    /* PENTING: tanpa baris ini, browser membuang semua warna latar (gradient hijau
+       header, kotak ikon hijau, badge, dsb) saat "Save as PDF" / cetak - hasilnya
+       kartu jadi pudar/abu-abu seperti versi web tanpa warna. Baris ini memaksa
+       warna & gradient tetap tercetak persis seperti tampilan di layar. */
+    html, body, #cardPrintHost, #cardPrintHost * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
     body * { visibility: hidden; }
     #cardPrintHost, #cardPrintHost * { visibility: visible; }
 
