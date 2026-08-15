@@ -1061,6 +1061,53 @@
 <script>
 //<![CDATA[
   var isAdminLoggedIn = false;
+
+  // ------------------------------------------------------------------------
+  // SESI ADMIN (client-side saja, ~2 jam) - supaya admin tidak perlu login
+  // ulang tiap kali halaman di-reload/tablet dimatikan-nyalakan lagi.
+  // Catatan: ini BUKAN token keamanan sungguhan (aplikasi ini tidak memakai
+  // Supabase Auth), cuma penanda "sudah login" yang disimpan di localStorage
+  // tablet ini dan kedaluwarsa otomatis. Siapa pun yang pegang tablet ini
+  // selama sesi belum kedaluwarsa akan otomatis masuk sebagai admin.
+  // ------------------------------------------------------------------------
+  var ADMIN_SESSION_KEY = 'icanteen_admin_session';
+  var ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 jam
+
+  function saveAdminSession_(user) {
+    try {
+      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+        user: user || null,
+        expiresAt: Date.now() + ADMIN_SESSION_TTL_MS
+      }));
+    } catch (e) { /* localStorage tidak tersedia (mode privat dsb) - abaikan, cukup login manual */ }
+  }
+
+  function clearAdminSession_() {
+    try { localStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
+  }
+
+  function restoreAdminSession_() {
+    try {
+      var raw = localStorage.getItem(ADMIN_SESSION_KEY);
+      if (!raw) return null;
+      var sess = JSON.parse(raw);
+      if (!sess || !sess.expiresAt || Date.now() > sess.expiresAt) {
+        clearAdminSession_();
+        return null;
+      }
+      return sess;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Tampilkan UI admin (dipakai baik saat login manual maupun saat sesi tersimpan dipulihkan)
+  function activateAdminUI_() {
+    isAdminLoggedIn = true;
+    $('#adminSidebar').removeClass('d-none');
+    $('#mainContentArea').removeClass('col-12').addClass('col-md-9 col-lg-10');
+    $('#lblAdminAccess').text('Panel Admin Active');
+  }
   var isScanLocked = false;
   var SCAN_COOLDOWN_MS = 5000;
 
@@ -1297,6 +1344,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initCameraScanner();
     setupHIDListener();
     bindEventListeners();
+
+    // Pulihkan sesi admin kalau masih berlaku (lihat catatan di restoreAdminSession_)
+    if (restoreAdminSession_()) {
+      activateAdminUI_();
+    }
+
     updateOfflineQueueBadge_(); // tampilkan badge kalau ada sisa antrean dari sesi sebelumnya
     scheduleQueueFlush_(1000);  // langsung coba kirim sisa antrean begitu halaman dibuka
 
@@ -1593,6 +1646,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#btnLogoutAdmin').off('click').on('click', function(e) {
       e.preventDefault();
       isAdminLoggedIn = false;
+      clearAdminSession_();
       $('#adminSidebar').addClass('d-none');
       $('#mainContentArea').removeClass('col-md-9 col-lg-10').addClass('col-12');
       $('#lblAdminAccess').text('Admin Area');
@@ -1976,18 +2030,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     callApi('login', { username: user, password: pass }, function(res) {
       if (res && res.success) {
-        isAdminLoggedIn = true;
-        
+        saveAdminSession_(res.user);
+        activateAdminUI_();
+
         var modalEl = document.getElementById('loginModal');
         if (modalEl) {
           var modal = bootstrap.Modal.getInstance(modalEl);
           if (modal) modal.hide();
         }
 
-        $('#adminSidebar').removeClass('d-none');
-        $('#mainContentArea').removeClass('col-12').addClass('col-md-9 col-lg-10');
-        $('#lblAdminAccess').text('Panel Admin Active');
-        
         Swal.fire({ icon: 'success', title: 'Login Berhasil', timer: 1500, showConfirmButton: false });
         switchView('dashboard');
       } else {
@@ -2481,8 +2532,16 @@ function renderQueuedScan_(code, session) {
             '<td><button class="btn btn-sm btn-outline-emerald border-emerald text-emerald me-1" onclick="editSantri(\'' + s.nis + '\')"><i class="bi bi-pencil-square"></i></button>' +
             '<button class="btn btn-sm btn-outline-danger" onclick="deleteSantri(\'' + s.nis + '\')"><i class="bi bi-trash"></i></button></td></tr>';
         });
+        // PENTING: DataTables mengambil alih & menyimpan state DOM tabel begitu diinisialisasi -
+        // mengganti isi <tbody> lewat jQuery .html() saja TIDAK akan terlihat di layar sampai
+        // halaman di-reload manual. Makanya instance lama harus dihancurkan dulu sebelum isi
+        // tabel diganti, baru diinisialisasi ulang, supaya perubahan (tambah/edit/hapus) langsung
+        // tampak tanpa perlu reload.
+        if ($.fn.DataTable.isDataTable('#tableSantri')) {
+          $('#tableSantri').DataTable().destroy();
+        }
         $('#santriTableBody').html(html);
-        if (!$.fn.DataTable.isDataTable('#tableSantri')) { $('#tableSantri').DataTable(); }
+        $('#tableSantri').DataTable();
       }
     });
   }
