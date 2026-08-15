@@ -2781,16 +2781,17 @@ function renderQueuedScan_(code, session) {
             '<div class="id-card-title-block">' +
               '<div class="id-card-main-title">KARTU MAKAN SANTRI</div>' +
             '</div>' +
-            '<div class="row g-0 align-items-center id-card-photo-row">' +
-              '<div class="col-4 text-center">' + buildAvatarImgTag_(s.fotoUrl, s.jk, 'rounded id-card-photo', 78, 98) + '</div>' +
-              '<div class="col-8 ps-2 id-card-info-list">' +
+            '<div class="d-flex align-items-center id-card-photo-row" style="gap:6px;">' +
+              '<div class="text-center flex-shrink-0">' + buildAvatarImgTag_(s.fotoUrl, s.jk, 'rounded id-card-photo', 78, 98) + '</div>' +
+              '<div class="flex-grow-1 id-card-info-list" style="min-width:0;">' +
                 '<div class="id-card-info-row"><i class="bi bi-person-fill id-card-info-icon"></i><div><div class="id-card-info-label">Nama</div><div class="id-card-info-value text-truncate">' + s.nama + '</div></div></div>' +
                 '<div class="id-card-info-row"><i class="bi bi-credit-card-2-front-fill id-card-info-icon"></i><div><div class="id-card-info-label">NIS</div><div class="id-card-info-value">' + s.nis + '</div></div></div>' +
                 '<div class="id-card-info-row"><i class="bi bi-book-fill id-card-info-icon"></i><div><div class="id-card-info-label">Kelas</div><div class="id-card-info-value">' + s.kelas + '</div></div></div>' +
                 '<div class="id-card-info-row card-asrama-line"><i class="bi bi-building-fill id-card-info-icon"></i><div><div class="id-card-info-label">Asrama</div><div class="id-card-info-value">' + s.asrama + '</div></div></div>' +
               '</div>' +
+              (showQr ? '<div class="text-center flex-shrink-0">' + qrFrontHtml + '</div>' : '') +
             '</div>' +
-            '<div class="id-card-code-area">' + qrFrontHtml + barcodeFrontHtml +
+            '<div class="id-card-code-area">' + barcodeFrontHtml +
               '<span class="id-card-scan-badge"><i class="bi bi-qr-code-scan"></i> Scan Saat Makan</span>' +
             '</div>' +
           '</div>' +
