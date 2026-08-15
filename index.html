@@ -221,6 +221,27 @@
   .bg-scan-danger { background: linear-gradient(135deg, #b91c1c 0%, var(--kiosk-crimson) 100%); color: #fff; }
   .bg-scan-danger .scan-icon-circle { background: rgba(255,255,255,0.2); color: #fff; }
 
+  /* HASIL SCAN - foto di kiri (lebih besar & jelas), data teks di kanan.
+     Dipakai untuk semua status hasil scan (makan pertama & nambah) supaya
+     tampilan konsisten dan foto tidak lagi terlihat kecil. */
+  .scan-result-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 0 .5rem;
+  }
+  .scan-result-photo {
+    width: 110px;
+    height: 110px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .scan-result-info { text-align: left; min-width: 0; }
+  .scan-result-info h1, .scan-result-info h2, .scan-result-info h4, .scan-result-info p { margin: 0; }
+  .scan-result-info > * + * { margin-top: .2rem; }
+
   /* BADGE ANTREAN OFFLINE - bar horizontal sesuai referensi */
   .offline-queue-badge {
     background: #dee9fc;
@@ -2433,23 +2454,31 @@ function renderQueuedScan_(code, session) {
       var s = res.data.santri;
       playAudioSuccess();
       showTerminalResult('bg-scan-success',
-        buildAvatarImgTag_(s.fotoUrl, s.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 84) +
-        '<h1 class="fw-bold mb-0" style="font-size:1.4rem;">SILAKAN MAKAN</h1>' +
-        '<h2 class="fw-bold m-0" style="font-size:1.1rem;">' + s.nama + '</h2>' +
-        '<div class="mt-1 badge bg-white text-dark px-2 py-1 rounded-pill" style="font-size:.75rem;">Kelas: ' + s.kelas + ' | Asrama: ' + s.asrama + '</div>' +
-        '<p class="mt-1 mb-0 opacity-75" style="font-size:.75rem;">NIS: ' + s.nis + ' • Jam Scan: ' + res.data.jam + '</p>'
+        '<div class="scan-result-row">' +
+          buildAvatarImgTag_(s.fotoUrl, s.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+          '<div class="scan-result-info">' +
+            '<h1 class="fw-bold" style="font-size:1.4rem;">SILAKAN MAKAN</h1>' +
+            '<h2 class="fw-bold" style="font-size:1.1rem;">' + s.nama + '</h2>' +
+            '<div class="badge bg-white text-dark px-2 py-1 rounded-pill" style="font-size:.75rem;">Kelas: ' + s.kelas + ' | Asrama: ' + s.asrama + '</div>' +
+            '<p class="opacity-75" style="font-size:.75rem;">NIS: ' + s.nis + ' • Jam Scan: ' + res.data.jam + '</p>' +
+          '</div>' +
+        '</div>'
       );
 
     } else if (status === 'ALREADY_SCANNED') {
       var s2 = res.data.santri;
       playAudioWarning();
       showTerminalResult('bg-scan-warning',
-        buildAvatarImgTag_(s2.fotoUrl, s2.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 80) +
-        '<h1 class="fw-bold mb-0" style="font-size:1.4rem;">MASIH JEDA MAKAN</h1>' +
-        '<h2 class="mb-0" style="font-size:1.05rem;">' + s2.nama + '</h2>' +
-        '<h4 class="mt-1" style="font-size:.85rem;">Kelas: ' + s2.kelas + ' | Asrama: ' + s2.asrama + '</h4>' +
-        '<p class="mt-1 mb-0" style="font-size:.8rem;">Tercatat makan pukul: ' + res.data.jamSebelumnya + '</p>' +
-        '<p class="mb-0" style="font-size:.8rem;">Boleh nambah setelah jeda ' + (res.data.remainingMinutes || 0) + ' menit lagi.</p>'
+        '<div class="scan-result-row">' +
+          buildAvatarImgTag_(s2.fotoUrl, s2.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+          '<div class="scan-result-info">' +
+            '<h1 class="fw-bold" style="font-size:1.4rem;">MASIH JEDA MAKAN</h1>' +
+            '<h2 style="font-size:1.05rem;">' + s2.nama + '</h2>' +
+            '<h4 style="font-size:.85rem;">Kelas: ' + s2.kelas + ' | Asrama: ' + s2.asrama + '</h4>' +
+            '<p style="font-size:.8rem;">Tercatat makan pukul: ' + res.data.jamSebelumnya + '</p>' +
+            '<p style="font-size:.8rem;">Boleh nambah setelah jeda ' + Math.round(res.data.remainingMinutes || 0) + ' menit lagi.</p>' +
+          '</div>' +
+        '</div>'
       );
 
     } else if (status === 'ELIGIBLE_FOR_SECOND') {
@@ -2459,7 +2488,7 @@ function renderQueuedScan_(code, session) {
       content.html(
         '<div class="d-flex align-items-center justify-content-center gap-3 flex-wrap">' +
           '<div class="text-center">' +
-            buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 90) +
+            buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 100) +
             '<h2 class="fw-bold m-0" style="font-size:1.1rem;">' + s3.nama + '</h2>' +
             '<div style="font-size:.8rem;">Kelas: ' + s3.kelas + ' | Asrama: ' + s3.asrama + '</div>' +
           '</div>' +
@@ -2499,17 +2528,25 @@ function renderQueuedScan_(code, session) {
           if (res2 && res2.success && status2 === 'SECOND_SUCCESS') {
             playAudioSuccess();
             showTerminalResult('bg-scan-success',
-              buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 80) +
-              '<h1 class="fw-bold mb-0" style="font-size:1.4rem;">SILAKAN NAMBAH!</h1>' +
-              '<h2 class="fw-bold m-0" style="font-size:1.05rem;">' + s3.nama + '</h2>' +
-              '<p class="mt-1 opacity-75" style="font-size:.8rem;">Makan kedua tercatat pukul ' + res2.data.jam + '</p>'
+              '<div class="scan-result-row">' +
+                buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+                '<div class="scan-result-info">' +
+                  '<h1 class="fw-bold" style="font-size:1.4rem;">SILAKAN NAMBAH!</h1>' +
+                  '<h2 class="fw-bold" style="font-size:1.05rem;">' + s3.nama + '</h2>' +
+                  '<p class="opacity-75" style="font-size:.8rem;">Makan kedua tercatat pukul ' + res2.data.jam + '</p>' +
+                '</div>' +
+              '</div>'
             );
           } else if (status2 === 'ALREADY_SECOND') {
             playAudioWarning();
             showTerminalResult('bg-scan-warning',
-              buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 80) +
-              '<h1 class="fw-bold mb-0" style="font-size:1.3rem;">SUDAH TERCATAT NAMBAH</h1>' +
-              '<p class="mt-1" style="font-size:.85rem;">' + s3.nama + ' sudah mengambil jatah kedua pukul ' + res2.data.jamNambah + '</p>'
+              '<div class="scan-result-row">' +
+                buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+                '<div class="scan-result-info">' +
+                  '<h1 class="fw-bold" style="font-size:1.3rem;">SUDAH TERCATAT NAMBAH</h1>' +
+                  '<p style="font-size:.85rem;">' + s3.nama + ' sudah mengambil jatah kedua pukul ' + res2.data.jamNambah + '</p>' +
+                '</div>' +
+              '</div>'
             );
           } else {
             playAudioDanger();
@@ -2532,10 +2569,14 @@ function renderQueuedScan_(code, session) {
       var s4 = res.data.santri;
       playAudioWarning();
       showTerminalResult('bg-scan-warning',
-        buildAvatarImgTag_(s4.fotoUrl, s4.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 80) +
-        '<h1 class="fw-bold mb-0" style="font-size:1.3rem;">SUDAH MAKAN 2X HARI INI</h1>' +
-        '<h2 class="mb-0" style="font-size:1.05rem;">' + s4.nama + '</h2>' +
-        '<p class="mt-1" style="font-size:.8rem;">Makan pertama: ' + res.data.jamPertama + ' • Nambah: ' + res.data.jamNambah + '</p>'
+        '<div class="scan-result-row">' +
+          buildAvatarImgTag_(s4.fotoUrl, s4.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+          '<div class="scan-result-info">' +
+            '<h1 class="fw-bold" style="font-size:1.3rem;">SUDAH MAKAN 2X HARI INI</h1>' +
+            '<h2 style="font-size:1.05rem;">' + s4.nama + '</h2>' +
+            '<p style="font-size:.8rem;">Makan pertama: ' + res.data.jamPertama + ' • Nambah: ' + res.data.jamNambah + '</p>' +
+          '</div>' +
+        '</div>'
       );
 
     } else {
