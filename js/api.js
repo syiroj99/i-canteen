@@ -1,8 +1,13 @@
 // ============================================================================
 // api.js — Jembatan (bridge) semua aksi frontend ke Supabase.
 // Menggantikan backend Google Apps Script sepenuhnya.
-// Dipanggil lewat callApi(action, payload) -> selalu resolve ke sebuah object
-// (tidak pernah throw), bentuknya konsisten dgn respon lama: { success, message?, data? }
+//
+// PENTING: tabel di database memakai snake_case (foto_url, nama_pondok,
+// jeda_nambah_menit, jadwal_makan, is_sahur, dst) sedangkan frontend
+// (index.html) memakai camelCase (fotoUrl, namaPondok, jedaNambahMenit,
+// jadwalMakan, isSahur). File ini yang menjembatani/memetakan dua gaya
+// penamaan itu - jangan ubah nama kolom di query di bawah tanpa cek dulu
+// nama kolom asli di Supabase (Table Editor).
 // ============================================================================
 
 // NOTE: bernama `supabaseApi` (bukan `callApi`) dengan sengaja - index.html
@@ -50,11 +55,11 @@ async function supabaseApi(action, payload = {}) {
       // ------------------------------------------------------------- SANTRI
       case 'getAllSantri': {
         const { data, error } = await sb.from('santri').select('*').order('nama');
-        return { success: !error, data: data || [], message: error?.message };
+        return { success: !error, data: (data || []).map(santriToFrontend_), message: error?.message };
       }
 
       case 'addSantri': {
-        const s = { ...payload.santriData };
+        const s = santriToDb_(payload.santriData);
         s.barcode = s.barcode || s.nis;
         s.status  = s.status || 'Aktif';
         const { error } = await sb.from('santri').upsert(s, { onConflict: 'nis' });
@@ -67,11 +72,12 @@ async function supabaseApi(action, payload = {}) {
       }
 
       case 'importSantri': {
-        const list = (payload.list || []).map(s => ({
-          ...s,
-          barcode: s.barcode || s.nis,
-          status:  s.status || 'Aktif'
-        }));
+        const list = (payload.list || []).map(s => {
+          const row = santriToDb_(s);
+          row.barcode = row.barcode || row.nis;
+          row.status  = row.status || 'Aktif';
+          return row;
+        });
         const { error } = await sb.from('santri').upsert(list, { onConflict: 'nis' });
         return {
           success: !error,
@@ -82,18 +88,19 @@ async function supabaseApi(action, payload = {}) {
 
       case 'generateCardData': {
         const { data, error } = await sb.from('santri').select('*').order('nama');
-        return { success: !error, data: data || [], message: error?.message };
+        return { success: !error, data: (data || []).map(santriToFrontend_), message: error?.message };
       }
 
       // ------------------------------------------------------------ SETTINGS
       case 'getSettings': {
         const { data, error } = await sb.from('settings').select('*').eq('id', 'general').single();
         if (error) return { success: false, message: error.message };
-        return { success: true, data };
+        return { success: true, data: settingsToFrontend_(data) };
       }
 
       case 'saveSettings': {
-        const { error } = await sb.from('settings').upsert({ id: 'general', ...payload.settingsData });
+        const row = settingsToDb_(payload.settingsData);
+        const { error } = await sb.from('settings').upsert({ id: 'general', ...row });
         return { success: !error, message: error ? error.message : 'Pengaturan berhasil disimpan' };
       }
 
@@ -121,13 +128,17 @@ async function supabaseApi(action, payload = {}) {
       }
 
       // ----------------------------------------------------------- DASHBOARD
+      // Catatan: tabel `scan` sudah menyimpan salinan nama/kelas/asrama sendiri
+      // di setiap baris (snapshot saat scan terjadi), jadi tidak perlu join ke
+      // tabel santri untuk menampilkannya - hanya perlu santri untuk hitung
+      // total & filter gender (kolom jk cuma ada di tabel santri).
       case 'getDashboardStats': {
         const session  = payload.session || 'pagi';
         const gender   = payload.gender || '';
         const tanggal  = payload.tanggal || todayJakarta_();
 
         const [{ data: santriList }, { data: scans }] = await Promise.all([
-          sb.from('santri').select('*'),
+          sb.from('santri').select('nis, jk'),
           sb.from('scan').select('*').eq('tanggal', tanggal)
         ]);
 
@@ -138,23 +149,18 @@ async function supabaseApi(action, payload = {}) {
         const bySession = scanToday.filter(sc => sc.session === session);
         const sudahMakanNis = new Set(bySession.filter(sc => sc.jenis === 'PERTAMA').map(sc => sc.nis));
         const nambahCount = bySession.filter(sc => sc.jenis === 'NAMBAH').length;
-        const sahurCount = new Set(scanToday.filter(sc => sc.isSahur).map(sc => sc.nis)).size;
+        const sahurCount = new Set(scanToday.filter(sc => sc.is_sahur).map(sc => sc.nis)).size;
 
         const totalSantri = santri.length;
         const sudahMakan = sudahMakanNis.size;
         const belumMakan = totalSantri - sudahMakan;
         const persentase = totalSantri > 0 ? Math.round((sudahMakan / totalSantri) * 100) + '%' : '0%';
 
-        const santriByNis = {};
-        santri.forEach(s => { santriByNis[s.nis] = s; });
         const recentScans = bySession
           .slice()
           .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
           .slice(0, 10)
-          .map(sc => {
-            const s = santriByNis[sc.nis] || {};
-            return { nama: s.nama || sc.nis, kelas: s.kelas || '', asrama: s.asrama || '', jam: sc.jam, isSahur: !!sc.isSahur };
-          });
+          .map(sc => ({ nama: sc.nama || sc.nis, kelas: sc.kelas || '', asrama: sc.asrama || '', jam: sc.jam, isSahur: !!sc.is_sahur }));
 
         const data = { totalSantri, belumMakan, persentase, count2x: nambahCount, countPuasa: sahurCount, recentScans };
         data[session] = sudahMakan;
@@ -194,9 +200,9 @@ async function supabaseApi(action, payload = {}) {
         const santriByNis = {};
         santri.forEach(s => { santriByNis[s.nis] = s; });
 
-        const pertamaNis = new Set(scans.filter(sc => sc.jenis === 'PERTAMA' && santriByNis[sc.nis]).map(sc => sc.nis));
-        const nambahNis  = new Set(scans.filter(sc => sc.jenis === 'NAMBAH'  && santriByNis[sc.nis]).map(sc => sc.nis));
-        const sahurNis   = new Set(scans.filter(sc => sc.isSahur && santriByNis[sc.nis]).map(sc => sc.nis));
+        const pertamaNis = new Set((scans || []).filter(sc => sc.jenis === 'PERTAMA' && santriByNis[sc.nis]).map(sc => sc.nis));
+        const nambahNis  = new Set((scans || []).filter(sc => sc.jenis === 'NAMBAH'  && santriByNis[sc.nis]).map(sc => sc.nis));
+        const sahurNis   = new Set((scans || []).filter(sc => sc.is_sahur && santriByNis[sc.nis]).map(sc => sc.nis));
 
         let list;
         if (kategori === 'total') list = santri;
@@ -210,6 +216,9 @@ async function supabaseApi(action, payload = {}) {
       }
 
       // ------------------------------------------------------------- LAPORAN
+      // Langsung dari tabel scan (nama/kelas/asrama sudah tersimpan di situ),
+      // filter kelas/asrama dilakukan di JS karena tidak selalu match 1:1
+      // dengan santri yang mungkin sudah pindah kelas setelah tanggal scan.
       case 'getReports': {
         let query = sb.from('scan').select('*').order('tanggal', { ascending: false }).order('jam', { ascending: false });
         if (payload.startDate) query = query.gte('tanggal', payload.startDate);
@@ -220,17 +229,10 @@ async function supabaseApi(action, payload = {}) {
         const { data: scans, error } = await query;
         if (error) return { success: false, message: error.message };
 
-        const { data: santriList } = await sb.from('santri').select('*');
-        const santriByNis = {};
-        (santriList || []).forEach(s => { santriByNis[s.nis] = s; });
-
-        let rows = (scans || []).map(sc => {
-          const s = santriByNis[sc.nis] || {};
-          return {
-            nis: sc.nis, nama: s.nama || sc.nis, kelas: s.kelas || '', asrama: s.asrama || '',
-            session: sc.session, jenis: sc.jenis, tanggal: sc.tanggal, jam: sc.jam
-          };
-        });
+        let rows = (scans || []).map(sc => ({
+          nis: sc.nis, nama: sc.nama || sc.nis, kelas: sc.kelas || '', asrama: sc.asrama || '',
+          session: sc.session, jenis: sc.jenis, tanggal: sc.tanggal, jam: sc.jam
+        }));
         if (payload.kelas)  rows = rows.filter(r => r.kelas === payload.kelas);
         if (payload.asrama) rows = rows.filter(r => r.asrama === payload.asrama);
 
@@ -252,6 +254,42 @@ async function supabaseApi(action, payload = {}) {
   }
 }
 window.supabaseApi = supabaseApi;
+
+// ----------------------------------------------------------------------------
+// Pemetaan nama kolom: DB (snake_case) <-> Frontend (camelCase)
+// ----------------------------------------------------------------------------
+function santriToFrontend_(row) {
+  if (!row) return row;
+  const { foto_url, created_at, updated_at, ...rest } = row;
+  return { ...rest, fotoUrl: foto_url };
+}
+function santriToDb_(obj) {
+  if (!obj) return obj;
+  const { fotoUrl, ...rest } = obj;
+  const row = { ...rest };
+  if (fotoUrl !== undefined) row.foto_url = fotoUrl;
+  return row;
+}
+function settingsToFrontend_(row) {
+  if (!row) return row;
+  return {
+    namaPondok: row.nama_pondok,
+    subJudul: row.sub_judul,
+    logoUrl: row.logo_url,
+    jedaNambahMenit: row.jeda_nambah_menit,
+    jadwalMakan: row.jadwal_makan
+  };
+}
+function settingsToDb_(obj) {
+  if (!obj) return {};
+  const row = {};
+  if (obj.namaPondok !== undefined)       row.nama_pondok = obj.namaPondok;
+  if (obj.subJudul !== undefined)         row.sub_judul = obj.subJudul;
+  if (obj.logoUrl !== undefined)          row.logo_url = obj.logoUrl;
+  if (obj.jedaNambahMenit !== undefined)  row.jeda_nambah_menit = obj.jedaNambahMenit;
+  if (obj.jadwalMakan !== undefined)      row.jadwal_makan = obj.jadwalMakan;
+  return row;
+}
 
 function filterGender_(list, gender) {
   if (!gender) return list;
