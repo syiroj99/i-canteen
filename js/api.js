@@ -78,11 +78,24 @@ async function supabaseApi(action, payload = {}) {
           row.status  = row.status || 'Aktif';
           return row;
         });
-        const { error } = await sb.from('santri').upsert(list, { onConflict: 'nis' });
+
+        // Buang duplikat NIS DI DALAM file yang sama (baris terakhir yang menang) -
+        // wajib, karena "ON CONFLICT DO UPDATE" Postgres error kalau satu perintah
+        // upsert mencoba meng-update baris yang sama dua kali sekaligus.
+        const byNis = new Map();
+        let duplicateCount = 0;
+        for (const row of list) {
+          if (byNis.has(row.nis)) duplicateCount++;
+          byNis.set(row.nis, row);
+        }
+        const dedupedList = Array.from(byNis.values());
+
+        const { error } = await sb.from('santri').upsert(dedupedList, { onConflict: 'nis' });
+        const dupNote = duplicateCount > 0 ? ` (${duplicateCount} baris NIS duplikat di file dilewati, dipakai data terakhirnya)` : '';
         return {
           success: !error,
-          message: error ? error.message : `Import selesai: ${list.length} baris`,
-          data: { success: list.length, failed: 0 }
+          message: error ? error.message : `Import selesai: ${dedupedList.length} baris${dupNote}`,
+          data: { success: dedupedList.length, failed: 0 }
         };
       }
 
