@@ -744,7 +744,31 @@
           <div class="row g-4">
             <!-- KIRI: PREVIEW KARTU (sekaligus jadi sumber cetak) -->
             <div class="col-lg-8">
-              <div class="card border-0 shadow-sm rounded-4 p-3" style="max-height: 74vh; overflow-y: auto; background: #f8fafc;">
+              <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
+                <div class="row g-2 align-items-end">
+                  <div class="col-sm-5">
+                    <label class="form-label small fw-semibold mb-1">Filter Kelas</label>
+                    <select id="cardFilterKelas" class="form-select form-select-sm rounded-3">
+                      <option value="">Semua Kelas</option>
+                    </select>
+                  </div>
+                  <div class="col-sm-5">
+                    <label class="form-label small fw-semibold mb-1">Filter Asrama</label>
+                    <select id="cardFilterAsrama" class="form-select form-select-sm rounded-3">
+                      <option value="">Semua Asrama</option>
+                    </select>
+                  </div>
+                  <div class="col-sm-2">
+                    <span id="cardFilterCount" class="badge bg-emerald-light text-dark w-100 py-2"></span>
+                  </div>
+                </div>
+                <p class="small text-muted mb-0 mt-2"><i class="bi bi-info-circle me-1"></i>Mencetak santri dalam jumlah besar sekaligus (ratusan) akan memakan waktu render lebih lama - gunakan filter di atas untuk mencetak per kelas/asrama secara bertahap kalau perlu.</p>
+              </div>
+              <div class="card border-0 shadow-sm rounded-4 p-3" style="max-height: 64vh; overflow-y: auto; background: #f8fafc; position: relative;">
+                <div id="cardLoadingOverlay" class="d-none text-center py-5">
+                  <div class="spinner-border text-emerald mb-2" role="status"></div>
+                  <p class="small text-muted mb-0" id="cardLoadingLabel">Memuat data santri...</p>
+                </div>
                 <div id="printableArea" class="card-canvas d-flex flex-column align-items-center gap-3"></div>
               </div>
             </div>
@@ -2626,25 +2650,72 @@ function renderQueuedScan_(code, session) {
     });
   }
 
-  var lastCardData_ = null; // simpan hasil terakhir supaya ganti format barcode tidak perlu fetch ulang ke server
+  var lastCardData_ = null; // simpan hasil terakhir (SEMUA santri) supaya ganti filter/format tidak perlu fetch ulang ke server
 
   function renderCards() {
+    $('#cardLoadingOverlay').removeClass('d-none');
+    $('#cardLoadingLabel').text('Memuat data santri...');
+    $('#printableArea').empty();
     callApi('generateCardData', {}, function(res) {
       if (res && res.success) {
         lastCardData_ = res.data;
-        drawCardsHtml_(res.data);
+        populateCardFilterOptions_(res.data);
+        drawCardsHtml_(getFilteredCardData_());
+      } else {
+        $('#cardLoadingOverlay').addClass('d-none');
       }
     });
   }
+
+  // Isi dropdown Kelas/Asrama dari data yang benar-benar ada, hanya sekali per fetch
+  // (supaya tidak ke-reset pilihan admin tiap kali filter lain diganti).
+  function populateCardFilterOptions_(data) {
+    var kelasSet = {}, asramaSet = {};
+    data.forEach(function(s) {
+      if (s.kelas) kelasSet[s.kelas] = true;
+      if (s.asrama) asramaSet[s.asrama] = true;
+    });
+    var $kelas = $('#cardFilterKelas'), $asrama = $('#cardFilterAsrama');
+    var curKelas = $kelas.val(), curAsrama = $asrama.val();
+    $kelas.find('option:not(:first)').remove();
+    $asrama.find('option:not(:first)').remove();
+    Object.keys(kelasSet).sort().forEach(function(k) { $kelas.append('<option value="' + k + '">' + k + '</option>'); });
+    Object.keys(asramaSet).sort().forEach(function(a) { $asrama.append('<option value="' + a + '">' + a + '</option>'); });
+    $kelas.val(curKelas || '');
+    $asrama.val(curAsrama || '');
+  }
+
+  function getFilteredCardData_() {
+    if (!lastCardData_) return [];
+    var kelas = $('#cardFilterKelas').val();
+    var asrama = $('#cardFilterAsrama').val();
+    return lastCardData_.filter(function(s) {
+      return (!kelas || s.kelas === kelas) && (!asrama || s.asrama === asrama);
+    });
+  }
+
+  $(document).on('change', '#cardFilterKelas, #cardFilterAsrama', function() {
+    drawCardsHtml_(getFilteredCardData_());
+  });
 
   function drawCardsHtml_(data) {
     var codeType = $('#cardCodeType').val() || 'qr';
     var showQr = (codeType === 'qr' || codeType === 'both');
     var showBarcode = (codeType === 'barcode' || codeType === 'both');
     var todayStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    var totalCount = lastCardData_ ? lastCardData_.length : 0;
+    $('#cardFilterCount').text(data.length + ' / ' + totalCount);
+    $('#cardPrintCount').text('(' + data.length + ')');
+
+    if (data.length === 0) {
+      $('#printableArea').html('<p class="text-muted small text-center py-4 mb-0">Tidak ada santri yang cocok dengan filter ini.</p>');
+      $('#cardLoadingOverlay').addClass('d-none');
+      return;
+    }
+
     var cardsHtml = '';
     data.forEach(function(s) {
-      var codeValue = s.barcode || s.nis;
       var qrFrontHtml = showQr ? '<canvas id="qr_' + s.nis + '" class="id-card-qr"></canvas>' : '';
       var barcodeFrontHtml = showBarcode ? '<svg id="barcode_' + s.nis + '"></svg>' : '';
       var qrBackHtml = showQr ? '<canvas id="qr_back_' + s.nis + '" class="id-card-qr id-card-qr-back"></canvas>' : '';
@@ -2690,24 +2761,61 @@ function renderQueuedScan_(code, session) {
       '</div>';
     });
     $('#printableArea').html(cardsHtml);
-    $('#cardPrintCount').text('(' + data.length + ')');
-    data.forEach(function(s) {
-      var codeValue = s.barcode || s.nis;
-      if (showQr) {
-        try {
-          new QRious({ element: document.getElementById('qr_' + s.nis), value: codeValue, size: 160, level: 'M', padding: 0 });
-        } catch (e) { console.warn('QR depan gagal untuk NIS ' + s.nis, e); }
-        try {
-          new QRious({ element: document.getElementById('qr_back_' + s.nis), value: codeValue, size: 100, level: 'M', padding: 0 });
-        } catch (e) { console.warn('QR belakang gagal untuk NIS ' + s.nis, e); }
+
+    // Render QR/barcode SECARA BERTAHAP (chunk kecil per tick) alih-alih semuanya sekaligus -
+    // untuk ratusan santri, menggambar semua kode dalam satu tarikan JS akan membekukan tab
+    // browser cukup lama. Memecahnya per-chunk + jeda kecil membuat browser tetap responsif
+    // dan indikator loading benar-benar terlihat berjalan, bukan diam.
+    $('#cardLoadingLabel').text('Merender kode QR/barcode... 0/' + data.length);
+    var CHUNK_SIZE = 25;
+    var idx = 0;
+
+    function renderChunk() {
+      var end = Math.min(idx + CHUNK_SIZE, data.length);
+      for (; idx < end; idx++) {
+        var s = data[idx];
+        var codeValue = s.barcode || s.nis;
+        if (showQr) {
+          renderQrAsImage_('qr_' + s.nis, codeValue, 160);
+          renderQrAsImage_('qr_back_' + s.nis, codeValue, 100);
+        }
+        if (showBarcode) {
+          // Dibungkus try/catch: format seperti EAN-13 mensyaratkan panjang digit tertentu,
+          // supaya NIS yang tidak cocok tidak menghentikan render seluruh kartu lainnya.
+          try { JsBarcode('#barcode_' + s.nis, codeValue, { format: 'CODE128', height: 22, displayValue: false }); } catch (e) { console.warn('Barcode depan gagal untuk NIS ' + s.nis, e); }
+          try { JsBarcode('#barcode_back_' + s.nis, codeValue, { format: 'CODE128', height: 14, width: 1, displayValue: false }); } catch (e) { console.warn('Barcode belakang gagal untuk NIS ' + s.nis, e); }
+        }
       }
-      if (showBarcode) {
-        // Dibungkus try/catch: format seperti EAN-13 mensyaratkan panjang digit tertentu,
-        // supaya NIS yang tidak cocok tidak menghentikan render seluruh kartu lainnya.
-        try { JsBarcode('#barcode_' + s.nis, codeValue, { format: 'CODE128', height: 22, displayValue: false }); } catch (e) { console.warn('Barcode depan gagal untuk NIS ' + s.nis, e); }
-        try { JsBarcode('#barcode_back_' + s.nis, codeValue, { format: 'CODE128', height: 14, width: 1, displayValue: false }); } catch (e) { console.warn('Barcode belakang gagal untuk NIS ' + s.nis, e); }
+      $('#cardLoadingLabel').text('Merender kode QR/barcode... ' + idx + '/' + data.length);
+      if (idx < data.length) {
+        setTimeout(renderChunk, 0);
+      } else {
+        $('#cardLoadingOverlay').addClass('d-none');
       }
-    });
+    }
+    $('#cardLoadingOverlay').removeClass('d-none');
+    setTimeout(renderChunk, 0);
+  }
+
+  // Gambar QR ke <canvas> lewat QRious, LALU langsung ganti elemen itu menjadi <img> biasa
+  // (pakai data URL dari canvas.toDataURL()). PENTING: ini memperbaiki bug "QR hilang saat
+  // dicetak" - proses cetak meng-clone kartu lewat innerHTML, dan isi gambar di dalam
+  // <canvas> TIDAK ikut tersalin oleh innerHTML (beda dengan SVG barcode yang strukturnya
+  // memang bagian dari HTML). Dengan <img src="data:..."> ini, hasilnya aman disalin
+  // persis seperti barcode SVG.
+  function renderQrAsImage_(elementId, value, pixelSize) {
+    var canvas = document.getElementById(elementId);
+    if (!canvas) return;
+    try {
+      new QRious({ element: canvas, value: value, size: pixelSize, level: 'M', padding: 0 });
+      var img = document.createElement('img');
+      img.src = canvas.toDataURL('image/png');
+      img.className = canvas.className;
+      img.alt = 'QR ' + value;
+      canvas.parentNode.replaceChild(img, canvas);
+    } catch (e) {
+      console.warn('QR gagal untuk ' + elementId, e);
+    }
   }
 
   // Konfigurasi Desain: ganti tema warna kartu secara instan tanpa render ulang (pakai CSS variable)
@@ -2728,7 +2836,7 @@ function renderQueuedScan_(code, session) {
 
   // Ganti tipe kode perlu render ulang HTML kartu (canvas QR / SVG barcode tidak bisa update format in-place)
   $(document).on('change', '#cardCodeType', function() {
-    if (lastCardData_) drawCardsHtml_(lastCardData_);
+    if (lastCardData_) drawCardsHtml_(getFilteredCardData_());
   });
 
   // Cetak: clone HTML preview (SUDAH termasuk SVG barcode yang digambar JsBarcode) ke
