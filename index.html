@@ -205,7 +205,7 @@
   /* KARTU STATUS UTAMA - tinggi dipangkas (min-height & padding lebih kecil,
      ikon lebih ringkas) supaya kolom kanan tidak mendorong halaman melebihi
      1 layar. */
-  .scan-status-card { border-radius: 20px; min-height: 170px !important; }
+  .scan-status-card { border-radius: 20px; min-height: 200px !important; }
   .scan-icon-circle {
     width: 72px; height: 72px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
@@ -233,8 +233,8 @@
     padding: 0 .5rem;
   }
   .scan-result-photo {
-    width: 110px;
-    height: 110px;
+    width: 170px;
+    height: 170px;
     object-fit: cover;
     flex-shrink: 0;
   }
@@ -2455,7 +2455,7 @@ function renderQueuedScan_(code, session) {
       playAudioSuccess();
       showTerminalResult('bg-scan-success',
         '<div class="scan-result-row">' +
-          buildAvatarImgTag_(s.fotoUrl, s.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+          buildAvatarImgTag_(s.fotoUrl, s.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 170) +
           '<div class="scan-result-info">' +
             '<h1 class="fw-bold" style="font-size:1.4rem;">SILAKAN MAKAN</h1>' +
             '<h2 class="fw-bold" style="font-size:1.1rem;">' + s.nama + '</h2>' +
@@ -2470,7 +2470,7 @@ function renderQueuedScan_(code, session) {
       playAudioWarning();
       showTerminalResult('bg-scan-warning',
         '<div class="scan-result-row">' +
-          buildAvatarImgTag_(s2.fotoUrl, s2.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+          buildAvatarImgTag_(s2.fotoUrl, s2.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 170) +
           '<div class="scan-result-info">' +
             '<h1 class="fw-bold" style="font-size:1.4rem;">MASIH JEDA MAKAN</h1>' +
             '<h2 style="font-size:1.05rem;">' + s2.nama + '</h2>' +
@@ -2488,7 +2488,7 @@ function renderQueuedScan_(code, session) {
       content.html(
         '<div class="d-flex align-items-center justify-content-center gap-3 flex-wrap">' +
           '<div class="text-center">' +
-            buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 100) +
+            buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'rounded-circle mb-2 border border-3 border-white shadow', 130) +
             '<h2 class="fw-bold m-0" style="font-size:1.1rem;">' + s3.nama + '</h2>' +
             '<div style="font-size:.8rem;">Kelas: ' + s3.kelas + ' | Asrama: ' + s3.asrama + '</div>' +
           '</div>' +
@@ -2529,7 +2529,7 @@ function renderQueuedScan_(code, session) {
             playAudioSuccess();
             showTerminalResult('bg-scan-success',
               '<div class="scan-result-row">' +
-                buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+                buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 170) +
                 '<div class="scan-result-info">' +
                   '<h1 class="fw-bold" style="font-size:1.4rem;">SILAKAN NAMBAH!</h1>' +
                   '<h2 class="fw-bold" style="font-size:1.05rem;">' + s3.nama + '</h2>' +
@@ -2541,7 +2541,7 @@ function renderQueuedScan_(code, session) {
             playAudioWarning();
             showTerminalResult('bg-scan-warning',
               '<div class="scan-result-row">' +
-                buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+                buildAvatarImgTag_(s3.fotoUrl, s3.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 170) +
                 '<div class="scan-result-info">' +
                   '<h1 class="fw-bold" style="font-size:1.3rem;">SUDAH TERCATAT NAMBAH</h1>' +
                   '<p style="font-size:.85rem;">' + s3.nama + ' sudah mengambil jatah kedua pukul ' + res2.data.jamNambah + '</p>' +
@@ -2570,7 +2570,7 @@ function renderQueuedScan_(code, session) {
       playAudioWarning();
       showTerminalResult('bg-scan-warning',
         '<div class="scan-result-row">' +
-          buildAvatarImgTag_(s4.fotoUrl, s4.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 110) +
+          buildAvatarImgTag_(s4.fotoUrl, s4.jk, 'scan-result-photo rounded-circle border border-3 border-white shadow', 170) +
           '<div class="scan-result-info">' +
             '<h1 class="fw-bold" style="font-size:1.3rem;">SUDAH MAKAN 2X HARI INI</h1>' +
             '<h2 style="font-size:1.05rem;">' + s4.nama + '</h2>' +
