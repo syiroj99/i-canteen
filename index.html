@@ -298,8 +298,10 @@
   .id-card-cr80 {
     width: 85.6mm;
     height: 53.98mm;
+    box-sizing: border-box;
+    overflow: hidden;
     border-radius: 10px;
-    padding: 10px;
+    padding: 8px 9px;
     margin: 0;
     background: linear-gradient(135deg, #ffffff 0%, var(--card-header-bg, #f0fdf4) 100%);
     border: 1px solid var(--card-border, #a7f3d0);
@@ -309,7 +311,12 @@
   }
 
   .id-card-accent-text { color: var(--card-accent, #059669) !important; }
-  .id-card-header { border-bottom-color: var(--card-border, #a7f3d0) !important; }
+  .id-card-header { border-bottom-color: var(--card-border, #a7f3d0) !important; padding-bottom: 3px !important; margin-bottom: 5px !important; }
+  .id-card-header span { font-size: 7.5px !important; letter-spacing: .2px; }
+  .id-card-header svg { width: 11px !important; height: 11px !important; }
+
+  .id-card-photo-row { font-size: 8px !important; line-height: 1.35; }
+  .id-card-photo-row .fw-bold { font-size: 8.6px; margin-bottom: 1px; }
 
   /* SISI BELAKANG - ukuran fisik sama persis dengan sisi depan (CR80), berisi
      ketentuan penggunaan + tanggal cetak + barcode ulang untuk verifikasi cepat. */
@@ -320,20 +327,21 @@
     background: #ffffff;
   }
   .id-card-back-title {
-    font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
     color: var(--card-accent, #059669); border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; margin-bottom: 4px;
   }
-  .id-card-back-list { margin: 0; padding-left: 11px; font-size: 5.6px; line-height: 1.55; color: #334155; }
+  .id-card-back-list { margin: 0; padding-left: 10px; font-size: 5.6px; line-height: 1.6; color: #334155; }
   .id-card-back-footer {
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; justify-content: space-between; align-items: flex-end;
     font-size: 5.3px; color: #64748b; border-top: 1px solid #e2e8f0; margin-top: 4px; padding-top: 3px;
   }
-  .id-card-back-footer svg { height: 14px; }
+  .id-card-back-footer svg { height: 12px; }
 
-  /* Ukuran kode (QR canvas / barcode svg) di kartu - depan lebih besar, belakang mini */
+  /* Ukuran kode (QR canvas / barcode svg) di kartu - dijaga kompak & sebanding
+     dengan sisa ruang kartu, supaya tidak mendominasi/merusak proporsi layout. */
   .id-card-code-area { display: flex; align-items: center; justify-content: center; gap: 4px; }
-  .id-card-qr { width: 26mm; height: 26mm; }
-  .id-card-qr-back { width: 12mm; height: 12mm; }
+  .id-card-qr { width: 16mm; height: 16mm; display: block; }
+  .id-card-qr-back { width: 10mm; height: 10mm; }
 
   /* PASANGAN DEPAN + BELAKANG - satu baris per santri, baik di layar preview
      maupun saat dicetak, supaya admin langsung melihat & mencetak keduanya sekaligus. */
@@ -2619,16 +2627,16 @@ function renderQueuedScan_(code, session) {
             '</svg>' +
             '<span class="fw-bold text-dark" style="font-size: 10px;">PONDOK PESANTREN IDRISIYYAH</span>' +
           '</div>' +
-          '<div class="row g-0 align-items-center">' +
-            '<div class="col-4 text-center">' + buildAvatarImgTag_(s.fotoUrl, s.jk, 'rounded border', 55, 65) + '</div>' +
-            '<div class="col-8 ps-2" style="font-size: 11px;">' +
+          '<div class="row g-0 align-items-center id-card-photo-row">' +
+            '<div class="col-4 text-center">' + buildAvatarImgTag_(s.fotoUrl, s.jk, 'rounded border', 44, 54) + '</div>' +
+            '<div class="col-8 ps-2">' +
               '<div class="fw-bold text-truncate text-dark">' + s.nama + '</div>' +
               '<div>NIS: ' + s.nis + '</div>' +
               '<div>Kelas: ' + s.kelas + '</div>' +
               '<div class="card-asrama-line">Asrama: ' + s.asrama + '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="text-center mt-2 id-card-code-area">' + qrFrontHtml + barcodeFrontHtml + '</div>' +
+          '<div class="text-center mt-1 id-card-code-area">' + qrFrontHtml + barcodeFrontHtml + '</div>' +
         '</div>' +
         '<div class="id-card-cr80 id-card-cr80-back">' +
           '<div>' +
@@ -2651,10 +2659,10 @@ function renderQueuedScan_(code, session) {
       var codeValue = s.barcode || s.nis;
       if (showQr) {
         try {
-          new QRious({ element: document.getElementById('qr_' + s.nis), value: codeValue, size: 130, level: 'M', padding: 0 });
+          new QRious({ element: document.getElementById('qr_' + s.nis), value: codeValue, size: 160, level: 'M', padding: 0 });
         } catch (e) { console.warn('QR depan gagal untuk NIS ' + s.nis, e); }
         try {
-          new QRious({ element: document.getElementById('qr_back_' + s.nis), value: codeValue, size: 70, level: 'M', padding: 0 });
+          new QRious({ element: document.getElementById('qr_back_' + s.nis), value: codeValue, size: 100, level: 'M', padding: 0 });
         } catch (e) { console.warn('QR belakang gagal untuk NIS ' + s.nis, e); }
       }
       if (showBarcode) {
