@@ -2,6 +2,24 @@
 <!-- i-CANTEEN - PONDOK PESANTREN IDRISIYYAH (BLOGGER EDITION) -->
 <!-- ================================================================= -->
 
+<!-- Catatan: file ini awalnya fragmen tanpa <head> eksplisit (untuk ditempel
+     di template Blogger). Tag meta/link di bawah tetap aman ditaruh di sini
+     karena parser HTML akan otomatis menempatkan elemen khusus <head> ini
+     ke <head> tersirat selama belum ada konten <body> sebelum tag ini. -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>i-Canteen - Sistem Presensi Makan Santri</title>
+
+<!-- PWA: manifest, warna tema, dan ikon supaya bisa di-install ke homescreen -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#064e3b">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="i-Canteen">
+
 <!-- CSS Dependencies -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet"/>
@@ -295,6 +313,45 @@
     border-radius: 12px;
   }
 
+  /* ============================================================
+     RESPONSIVE FIX - MODE SCAN & SIDEBAR ADMIN DI SMARTPHONE
+     ============================================================ */
+
+  /* Kamera kiosk: di bawah breakpoint lg, div kolom kamera/status tidak
+     lagi punya kelas col-* (col-lg-5 / col-lg-7 hanya aktif >=992px),
+     jadi perlu tinggi kamera yang eksplisit supaya tidak ikut meregang
+     memenuhi seluruh viewport (yang tadinya bikin wajah ter-crop besar). */
+  @media (max-width: 991.98px) {
+    #view-scanMode.kiosk-fit {
+      min-height: auto;
+      justify-content: flex-start;
+    }
+    .scan-reader-box {
+      height: 260px !important;
+    }
+    .kiosk-camera-card { padding: 12px; }
+  }
+
+  /* Sidebar admin: bawaan Bootstrap (col-md-3 col-lg-2) membuatnya jadi
+     blok penuh 1 kolom yang menumpuk di atas konten saat mobile. Di sini
+     diubah jadi bar menu horizontal yang bisa digeser supaya tidak
+     mendorong halaman ke bawah. */
+  @media (max-width: 767.98px) {
+    .admin-sidebar .nav.nav-pills {
+      flex-direction: row !important;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      gap: 6px;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+    .admin-sidebar .nav-item { flex: 0 0 auto; }
+    .admin-sidebar .nav-link { white-space: nowrap; padding: 8px 14px; }
+    .admin-sidebar > .text-uppercase.text-muted { display: none; }
+    .admin-sidebar hr { margin: 8px 0; }
+    .admin-sidebar #btnLogoutAdmin { width: auto; white-space: nowrap; }
+  }
+
   .admin-sidebar .nav-link {
     color: #475569;
     font-weight: 500;
@@ -550,7 +607,7 @@
           <div class="row g-2 align-items-stretch">
 
             <!-- KOLOM KIRI (HANYA KAMERA + INPUT USB) -->
-            <div class="col-lg-5 d-flex flex-column gap-1">
+            <div class="col-12 col-lg-5 d-flex flex-column gap-1">
               <div class="kiosk-camera-card flex-grow-1 d-flex flex-column">
                 <h3 class="kiosk-camera-title"><i class="bi bi-camera-video me-2"></i>Kamera Kiosk</h3>
                 <div class="position-relative flex-grow-1 scanner-frame-v2">
@@ -578,7 +635,7 @@
             </div>
 
             <!-- KOLOM KANAN (SESI, METRIK, STATUS SCAN & INFO SANTRI) -->
-            <div class="col-lg-7 d-flex flex-column gap-2">
+            <div class="col-12 col-lg-7 d-flex flex-column gap-2">
 
               <!-- STATUS SESI AKTIF - horizontal karena kolom kanan cukup lebar,
                    jadi ikon/judul/jam, pill status, dan dropdown sesi sejajar
@@ -1744,6 +1801,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     $('#btnExecuteLogin').off('click').on('click', executeLogin);
 
+    // Submit login dengan tombol Enter (form login tidak dibungkus <form>,
+    // jadi Enter tidak trigger apa pun secara default tanpa listener ini).
+    $('#loginUser, #loginPass').off('keydown').on('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        executeLogin();
+      }
+    });
+
     $('#btnLogoutAdmin').off('click').on('click', function(e) {
       e.preventDefault();
       isAdminLoggedIn = false;
@@ -2906,5 +2972,23 @@ function renderQueuedScan_(code, session) {
     var host = document.getElementById('cardPrintHost');
     if (host) host.innerHTML = '';
   });
+
+  // ------------------------------------------------------------------------
+  // PWA: daftarkan service worker (app shell caching + dukungan offline
+  // ringan untuk asset statis). Panggilan ke Supabase TIDAK di-cache oleh
+  // service worker ini - tetap murni network, sesuai mekanisme antrean
+  // offline yang sudah ada di callApiQueueable().
+  // ------------------------------------------------------------------------
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(function(reg) {
+          console.log('Service worker terdaftar, scope:', reg.scope);
+        })
+        .catch(function(err) {
+          console.warn('Gagal mendaftarkan service worker:', err);
+        });
+    });
+  }
 //]]>
 </script>
