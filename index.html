@@ -903,6 +903,22 @@
         <!-- VIEW 5: LAPORAN -->
         <section id="view-reports" class="view-section d-none">
           <h3 class="fw-bold text-emerald mb-4">Laporan &amp; Rekapitulasi</h3>
+
+          <ul class="nav nav-tabs mb-3" id="reportTabNav">
+            <li class="nav-item">
+              <button class="nav-link active" id="tabBtnPresensi" data-bs-toggle="tab" data-bs-target="#reportTabPresensi" type="button">
+                <i class="bi bi-clipboard-check me-1"></i> Laporan Presensi
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" id="tabBtnBelumMakan" data-bs-toggle="tab" data-bs-target="#reportTabBelumMakan" type="button">
+                <i class="bi bi-exclamation-triangle me-1"></i> Belum Makan (untuk Dapur)
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content">
+          <div class="tab-pane fade show active" id="reportTabPresensi">
           <div class="card border-0 shadow-sm p-4 rounded-4 mb-3">
             <div class="row g-2 align-items-end">
               <div class="col-6 col-md-2">
@@ -968,6 +984,71 @@
               <tbody id="reportTableBody"></tbody>
             </table>
           </div>
+          </div><!-- END tab-pane Presensi -->
+
+          <div class="tab-pane fade" id="reportTabBelumMakan">
+          <div class="card border-0 shadow-sm p-4 rounded-4 mb-3">
+            <p class="text-muted small mb-3">Daftar santri yang <strong>belum tercatat makan</strong> (belum scan "Pertama") pada tanggal &amp; sesi terpilih - dipakai bagian dapur untuk memantau/menagih porsi yang masih harus disiapkan atau diantar.</p>
+            <div class="row g-2 align-items-end">
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Tanggal</label>
+                <input type="date" id="bmFilterDate" class="form-control form-control-sm rounded-3"/>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Sesi</label>
+                <select id="bmFilterSession" class="form-select form-select-sm rounded-3">
+                  <option value="pagi">Sarapan Pagi</option>
+                  <option value="siang">Makan Siang</option>
+                  <option value="malam">Makan Malam</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Kelas</label>
+                <select id="bmFilterKelas" class="form-select form-select-sm rounded-3"><option value="">Semua Kelas</option></select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Asrama</label>
+                <select id="bmFilterAsrama" class="form-select form-select-sm rounded-3"><option value="">Semua Asrama</option></select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold">Santri</label>
+                <select id="bmFilterGender" class="form-select form-select-sm rounded-3">
+                  <option value="">Semua Santri</option>
+                  <option value="L">Santri Putra</option>
+                  <option value="P">Santri Putri</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2">
+                <button class="btn btn-emerald w-100 rounded-3 btn-sm" id="btnLoadBelumMakan"><i class="bi bi-search me-1"></i>Tampilkan</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm p-4 rounded-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <span class="text-muted small" id="bmSummaryText">Belum ada data ditampilkan</span>
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm rounded-pill" id="btnPrintBelumMakan"><i class="bi bi-printer me-1"></i>Cetak</button>
+                <button class="btn btn-outline-danger btn-sm rounded-pill" id="btnExportBelumMakanPdf"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+                <button class="btn btn-outline-success btn-sm rounded-pill" id="btnExportBelumMakanExcel"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+              </div>
+            </div>
+            <table class="table table-striped align-middle" id="tableBelumMakan">
+              <thead>
+                <tr>
+                  <th style="width:50px;">No</th>
+                  <th>NIS</th>
+                  <th>Nama</th>
+                  <th>JK</th>
+                  <th>Kelas</th>
+                  <th>Asrama</th>
+                </tr>
+              </thead>
+              <tbody id="bmTableBody"></tbody>
+            </table>
+          </div>
+          </div><!-- END tab-pane Belum Makan -->
+          </div><!-- END tab-content -->
         </section>
 
         <!-- VIEW 6: PENGATURAN -->
@@ -2065,6 +2146,120 @@ document.addEventListener('DOMContentLoaded', () => {
       var wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Laporan');
       XLSX.writeFile(wb, 'Laporan_Presensi_' + Utilities_todayStr() + '.xlsx');
+    });
+
+    // LAPORAN BELUM MAKAN (khusus bagian dapur) - filter tanggal/sesi/kelas/asrama,
+    // lalu bisa dicetak atau diexport PDF/Excel untuk dibawa/ditempel di dapur.
+    var lastBelumMakanData = [];
+    var labelSesiMakan_ = { pagi: 'Sarapan Pagi', siang: 'Makan Siang', malam: 'Makan Malam' };
+
+    function loadBelumMakanFilterOptions_() {
+      if ($('#bmFilterKelas option').length > 1) return; // sudah pernah dimuat
+      callApi('getAllSantri', {}, function(res) {
+        if (res && res.success) {
+          var kelasSet = {}, asramaSet = {};
+          res.data.forEach(function(s) {
+            if (s.kelas) kelasSet[s.kelas] = true;
+            if (s.asrama) asramaSet[s.asrama] = true;
+          });
+          Object.keys(kelasSet).sort().forEach(function(k) {
+            $('#bmFilterKelas').append('<option value="' + k + '">' + k + '</option>');
+          });
+          Object.keys(asramaSet).sort().forEach(function(a) {
+            $('#bmFilterAsrama').append('<option value="' + a + '">' + a + '</option>');
+          });
+        }
+      });
+    }
+
+    // Default tanggal = hari ini & sesi = sesi kios yang sedang aktif, supaya
+    // begitu tab dibuka datanya relevan tanpa admin perlu mengatur ulang.
+    $('#tabBtnBelumMakan').on('shown.bs.tab', function() {
+      loadBelumMakanFilterOptions_();
+      if (!$('#bmFilterDate').val()) $('#bmFilterDate').val(Utilities_todayStr());
+      if (!lastBelumMakanData.length) $('#btnLoadBelumMakan').trigger('click');
+    });
+
+    $('#btnLoadBelumMakan').off('click').on('click', function() {
+      var payload = {
+        tanggal: $('#bmFilterDate').val() || Utilities_todayStr(),
+        session: $('#bmFilterSession').val() || 'pagi',
+        kelas: $('#bmFilterKelas').val(),
+        asrama: $('#bmFilterAsrama').val(),
+        gender: $('#bmFilterGender').val()
+      };
+      var $btn = $(this).prop('disabled', true);
+      callApi('getBelumMakanReport', payload, function(res) {
+        $btn.prop('disabled', false);
+        if (res && res.success) {
+          lastBelumMakanData = res.data || [];
+          var html = '';
+          lastBelumMakanData.forEach(function(s, i) {
+            html += '<tr><td>' + (i + 1) + '</td><td>' + s.nis + '</td><td><strong>' + s.nama + '</strong></td><td>' + (s.jk || '-') + '</td><td>' + (s.kelas || '-') + '</td><td>' + (s.asrama || '-') + '</td></tr>';
+          });
+          $('#bmTableBody').html(html || '<tr><td colspan="6" class="text-muted text-center">Semua santri sudah tercatat makan untuk sesi/tanggal ini</td></tr>');
+          $('#bmSummaryText').text(
+            lastBelumMakanData.length + ' santri belum makan - ' +
+            (labelSesiMakan_[payload.session] || payload.session) + ', ' + payload.tanggal
+          );
+        } else {
+          Swal.fire('Gagal', (res && res.message) ? res.message : 'Gagal memuat laporan.', 'error');
+        }
+      });
+    });
+
+    function belumMakanReportMeta_() {
+      var sesi = $('#bmFilterSession').val() || 'pagi';
+      var tgl = $('#bmFilterDate').val() || Utilities_todayStr();
+      return 'Sesi ' + (labelSesiMakan_[sesi] || sesi) + ' - Tanggal ' + tgl;
+    }
+
+    $('#btnPrintBelumMakan').off('click').on('click', function() {
+      if (lastBelumMakanData.length === 0) { Swal.fire('Info', 'Tampilkan data laporan dahulu sebelum mencetak.', 'info'); return; }
+      var rowsHtml = lastBelumMakanData.map(function(s, i) {
+        return '<tr><td>' + (i + 1) + '</td><td>' + s.nis + '</td><td>' + s.nama + '</td><td>' + (s.jk || '-') + '</td><td>' + (s.kelas || '-') + '</td><td>' + (s.asrama || '-') + '</td></tr>';
+      }).join('');
+      var win = window.open('', '_blank');
+      win.document.write(
+        '<html><head><title>Laporan Santri Belum Makan</title>' +
+        '<style>body{font-family:Arial,sans-serif;padding:24px;} h2{margin-bottom:4px;} p{margin-top:0;color:#555;}' +
+        'table{width:100%;border-collapse:collapse;margin-top:12px;} th,td{border:1px solid #999;padding:6px 8px;font-size:13px;text-align:left;}' +
+        'th{background:#eee;}</style></head><body>' +
+        '<h2>Laporan Santri Belum Makan</h2>' +
+        '<p>' + belumMakanReportMeta_() + ' - Total: ' + lastBelumMakanData.length + ' santri</p>' +
+        '<table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>JK</th><th>Kelas</th><th>Asrama</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+        '</body></html>'
+      );
+      win.document.close();
+      win.focus();
+      win.print();
+    });
+
+    $('#btnExportBelumMakanPdf').off('click').on('click', function() {
+      if (lastBelumMakanData.length === 0) { Swal.fire('Info', 'Tampilkan data laporan dahulu sebelum export.', 'info'); return; }
+      var docPdf = new window.jspdf.jsPDF();
+      docPdf.setFontSize(14);
+      docPdf.text('Laporan Santri Belum Makan', 14, 15);
+      docPdf.setFontSize(10);
+      docPdf.text(belumMakanReportMeta_() + ' - Total: ' + lastBelumMakanData.length + ' santri', 14, 21);
+      docPdf.autoTable({
+        startY: 26,
+        head: [['No', 'NIS', 'Nama', 'JK', 'Kelas', 'Asrama']],
+        body: lastBelumMakanData.map(function(s, i) { return [i + 1, s.nis, s.nama, s.jk || '-', s.kelas || '-', s.asrama || '-']; }),
+        styles: { fontSize: 9 }
+      });
+      docPdf.save('Laporan_BelumMakan_' + ($('#bmFilterDate').val() || Utilities_todayStr()) + '.pdf');
+    });
+
+    $('#btnExportBelumMakanExcel').off('click').on('click', function() {
+      if (lastBelumMakanData.length === 0) { Swal.fire('Info', 'Tampilkan data laporan dahulu sebelum export.', 'info'); return; }
+      var rows = lastBelumMakanData.map(function(s, i) {
+        return { No: i + 1, NIS: s.nis, Nama: s.nama, JK: s.jk || '-', Kelas: s.kelas || '-', Asrama: s.asrama || '-' };
+      });
+      var ws = XLSX.utils.json_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'BelumMakan');
+      XLSX.writeFile(wb, 'Laporan_BelumMakan_' + ($('#bmFilterDate').val() || Utilities_todayStr()) + '.xlsx');
     });
 
     // PENGATURAN LEMBAGA

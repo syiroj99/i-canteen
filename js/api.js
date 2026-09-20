@@ -228,6 +228,36 @@ async function supabaseApi(action, payload = {}) {
         return { success: true, data: list.map(s => ({ nis: s.nis, nama: s.nama, kelas: s.kelas, asrama: s.asrama })) };
       }
 
+      // ------------------------------------------------ LAPORAN BELUM MAKAN
+      // Dipakai bagian dapur: daftar santri yang belum tercatat makan
+      // ("Pertama") pada tanggal & sesi tertentu (default hari ini/sesi
+      // aktif). Mirip getDashboardDetail kategori 'belumMakan', tapi bisa
+      // pilih tanggal bebas (bukan cuma hari ini) + filter kelas/asrama,
+      // supaya bisa dipakai sebagai laporan, bukan cuma modal cepat.
+      case 'getBelumMakanReport': {
+        const session = payload.session || 'pagi';
+        const gender  = payload.gender || '';
+        const tanggal = payload.tanggal || todayJakarta_();
+
+        const [{ data: santriList }, { data: scans }] = await Promise.all([
+          sb.from('santri').select('*').order('nama'),
+          sb.from('scan').select('nis, jenis').eq('tanggal', tanggal).eq('session', session)
+        ]);
+
+        let santri = filterGender_(santriList || [], gender);
+        if (payload.kelas)  santri = santri.filter(s => s.kelas === payload.kelas);
+        if (payload.asrama) santri = santri.filter(s => s.asrama === payload.asrama);
+
+        const pertamaNis = new Set((scans || []).filter(sc => sc.jenis === 'PERTAMA').map(sc => sc.nis));
+        const list = santri.filter(s => !pertamaNis.has(s.nis));
+
+        return {
+          success: true,
+          data: list.map(s => ({ nis: s.nis, nama: s.nama, jk: s.jk || '', kelas: s.kelas || '', asrama: s.asrama || '' })),
+          meta: { tanggal, session, total: santri.length, belumMakan: list.length }
+        };
+      }
+
       // ------------------------------------------------------------- LAPORAN
       // Langsung dari tabel scan (nama/kelas/asrama sudah tersimpan di situ),
       // filter kelas/asrama dilakukan di JS karena tidak selalu match 1:1
