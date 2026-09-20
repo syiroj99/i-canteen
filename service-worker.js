@@ -15,7 +15,7 @@
 //    untuk kunjungan berikutnya.
 // ============================================================================
 
-const CACHE_VERSION = 'icanteen-v1';
+const CACHE_VERSION = 'icanteen-v2'; // dinaikkan: menambah fitur Laporan Belum Makan (dapur) di index.html/api.js
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
