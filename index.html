@@ -1415,6 +1415,21 @@
     return localStorage.getItem('icanteen_bridge_url') || DEFAULT_BRIDGE_URL_;
   }
 
+  // Ubah body error dari bridge (FastAPI) jadi teks yang bisa dibaca manusia.
+  // FastAPI punya 2 bentuk error yang beda: HTTPException biasa -> detail berupa
+  // TEKS ("detail": "pesan..."), tapi error validasi (kode 422, mis. field yang
+  // salah tipe) -> detail berupa DAFTAR OBJEK ("detail": [{msg: "...", ...}, ...]).
+  // Tanpa fungsi ini, bentuk kedua tampil sebagai "[object Object]" kalau
+  // langsung digabung ke string.
+  function bridgeErrorText_(body) {
+    if (!body) return 'Gagal menghubungi bridge sidik jari.';
+    if (typeof body.detail === 'string') return body.detail;
+    if (Array.isArray(body.detail)) {
+      return body.detail.map(function(e) { return e.msg || JSON.stringify(e); }).join('; ');
+    }
+    return body.message || 'Gagal memproses permintaan sidik jari.';
+  }
+
   // FILTER SANTRI PUTRA/PUTRI - dipakai bersama oleh kartu metrik kios & Dashboard
   // Analytics. Disimpan per-tablet di localStorage (bukan per-akun/server) supaya kios
   // yang ditempatkan di kantin putra dan kios di kantin putri masing-masing tetap
@@ -2415,8 +2430,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // -- Tombol sidik jari per-baris di Data Santri: buka modal enroll/hapus --
     $('#santriTableBody').off('click', '.fingerprint-cell-btn').on('click', '.fingerprint-cell-btn', function() {
-      var nis = $(this).data('nis');
-      var nama = $(this).data('nama');
+      // PENTING: pakai .attr(), BUKAN .data() - jQuery .data() otomatis mengubah
+      // atribut yang "kelihatan seperti angka" jadi tipe Number JS. NIS santri
+      // sering 15-16 digit, melebihi batas presisi aman Number JS (2^53), jadi
+      // kalau lewat .data() risikonya: (1) digit terakhir NIS bisa berubah/salah,
+      // (2) saat dikirim ke server jadi angka JSON padahal servernya minta teks,
+      // menyebabkan error 422. .attr() selalu mengembalikan teks apa adanya.
+      var nis = $(this).attr('data-nis');
+      var nama = $(this).attr('data-nama');
       $('#fpModalNis').text(nis);
       $('#fpModalNama').text(nama);
       $('#fingerprintModal').data('nis', nis).data('nama', nama);
@@ -2441,7 +2462,7 @@ document.addEventListener('DOMContentLoaded', () => {
           $('#fpModalStatus').html('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>' + result.body.message + '</span>');
           markEnrolledFingerprints_();
         } else {
-          $('#fpModalStatus').html('<span class="text-danger">' + (result.body.detail || result.body.message || 'Gagal merekam sidik jari.') + '</span>');
+          $('#fpModalStatus').html('<span class="text-danger">' + bridgeErrorText_(result.body) + '</span>');
         }
       }).catch(function() {
         $btn.prop('disabled', false);
@@ -3168,7 +3189,7 @@ function renderQueuedScan_(code, session) {
       var enrolledSet = {};
       (res.data || []).forEach(function(nis) { enrolledSet[nis] = true; });
       $('.fingerprint-cell-btn').each(function() {
-        var nis = $(this).data('nis');
+        var nis = $(this).attr('data-nis'); // .attr(), bukan .data() - lihat catatan di handler klik di atas
         var enrolled = !!enrolledSet[nis];
         $(this).toggleClass('btn-outline-secondary', !enrolled)
           .toggleClass('btn-outline-emerald border-emerald text-emerald', enrolled)
