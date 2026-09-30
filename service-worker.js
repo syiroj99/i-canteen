@@ -15,7 +15,7 @@
 //    untuk kunjungan berikutnya.
 // ============================================================================
 
-const CACHE_VERSION = 'icanteen-v2'; // dinaikkan: menambah fitur Laporan Belum Makan (dapur) di index.html/api.js
+const CACHE_VERSION = 'icanteen-v6'; // dinaikkan: perbaikan bug NIS besar ke-bulatkan jQuery .data() + pesan error enroll sidik jari
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
