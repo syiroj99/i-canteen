@@ -234,6 +234,17 @@ async function supabaseApi(action, payload = {}) {
       // aktif). Mirip getDashboardDetail kategori 'belumMakan', tapi bisa
       // pilih tanggal bebas (bukan cuma hari ini) + filter kelas/asrama,
       // supaya bisa dipakai sebagai laporan, bukan cuma modal cepat.
+      // ------------------------------------------------- SIDIK JARI (bridge)
+      // Dipakai halaman Data Santri untuk menandai baris mana yang sudah
+      // punya sidik jari terdaftar. Template biner-nya sendiri TIDAK pernah
+      // diambil/dikirim lewat sini - hanya daftar NIS yang sudah terdaftar,
+      // supaya tidak ada data biometrik yang lewat jalur ini tanpa perlu.
+      case 'getFingerprintNisList': {
+        const { data, error } = await sb.from('fingerprint_templates').select('nis');
+        if (error) return { success: false, message: error.message };
+        return { success: true, data: (data || []).map(r => r.nis) };
+      }
+
       case 'getBelumMakanReport': {
         const session = payload.session || 'pagi';
         const gender  = payload.gender || '';

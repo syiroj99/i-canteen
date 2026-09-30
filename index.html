@@ -622,6 +622,11 @@
                           title="Ganti Kamera Depan/Belakang">
                     <i class="bi bi-arrow-repeat"></i>
                   </button>
+                  <button type="button" id="btnToggleTorch" class="btn btn-sm btn-light rounded-circle shadow d-none"
+                          style="position:absolute; top:16px; right:58px; width:34px; height:34px; padding:0; z-index:7;"
+                          title="Nyalakan/Matikan Lampu Kilat (untuk ruangan redup)">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                  </button>
                 </div>
 
                 <div class="mt-3 pt-3 border-top">
@@ -630,6 +635,13 @@
                     <i class="bi bi-upc-scan"></i>
                     <input type="text" id="hidInput" class="form-control form-control-sm rounded-3" placeholder="Tap di sini, lalu scan barcode..."/>
                   </div>
+                </div>
+
+                <div class="mt-2 pt-2 border-top">
+                  <label class="kiosk-manual-label d-block mb-1" style="color:#64748b;">Sidik Jari (Bridge PC - opsional)</label>
+                  <button type="button" id="btnScanFingerprint" class="btn btn-outline-emerald border-emerald text-emerald w-100 rounded-3 btn-sm">
+                    <i class="bi bi-fingerprint me-1"></i> Pindai Sidik Jari
+                  </button>
                 </div>
               </div>
             </div>
@@ -815,6 +827,7 @@
                     <th>Kelas</th>
                     <th>Asrama</th>
                     <th>Status</th>
+                    <th>Sidik Jari</th>
                     <th>Aksi</th>
                   </tr>
                 </thead>
@@ -1087,6 +1100,20 @@
                 </div>
                 <button class="btn btn-emerald rounded-3 py-2 fw-bold w-100" id="btnSaveSettings">Simpan Pengaturan</button>
               </div>
+
+              <div class="card border-0 shadow-sm p-4 rounded-4 mt-3">
+                <h5 class="fw-semibold text-emerald mb-2"><i class="bi bi-fingerprint me-2"></i>Sidik Jari (Bridge PC)</h5>
+                <p class="form-text mt-0 mb-3">Alamat program bridge lokal yang menghubungkan fingerprint reader (mis. ZKTeco Live20R) ke halaman ini. Cuma berlaku di browser/PC ini saja - lihat folder <code>bridge/</code> di project untuk cara memasangnya.</p>
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold">Alamat Bridge</label>
+                  <input type="text" id="settingBridgeUrl" class="form-control rounded-3" placeholder="http://127.0.0.1:8009"/>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-emerald border-emerald text-emerald rounded-3 flex-grow-1" id="btnSaveBridgeUrl">Simpan</button>
+                  <button class="btn btn-outline-secondary rounded-3 flex-grow-1" id="btnTestBridgeUrl">Tes Koneksi</button>
+                </div>
+                <div class="small mt-2" id="bridgeUrlStatus"></div>
+              </div>
             </div>
 
             <!-- KOLOM KANAN: JADWAL WAKTU MAKAN -->
@@ -1268,6 +1295,30 @@
       </div>
     </div>
   </div>
+
+  <!-- MODAL: DAFTAR/HAPUS SIDIK JARI (butuh bridge PC - lihat folder bridge/) -->
+  <div class="modal fade" id="fingerprintModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4 border-0 shadow">
+        <div class="modal-header bg-emerald text-white rounded-top-4">
+          <h5 class="modal-title fw-bold"><i class="bi bi-fingerprint me-2"></i>Sidik Jari Santri</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4 text-center">
+          <p class="mb-1">NIS: <strong id="fpModalNis">-</strong></p>
+          <p class="mb-3">Nama: <strong id="fpModalNama">-</strong></p>
+          <div id="fpModalStatus" class="p-3 rounded-3 mb-3" style="background:#f8fafc; min-height:70px;">
+            <span class="text-muted small">Tekan "Mulai Rekam", lalu tempel &amp; angkat jari yang sama sebanyak 3x sesuai instruksi/bunyi alat.</span>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-emerald rounded-3 flex-grow-1" id="btnStartEnrollFingerprint"><i class="bi bi-fingerprint me-1"></i> Mulai Rekam</button>
+            <button type="button" class="btn btn-outline-danger rounded-3" id="btnDeleteEnrollFingerprint"><i class="bi bi-trash me-1"></i> Hapus</button>
+          </div>
+          <p class="small text-muted mt-3 mb-0">Butuh bridge PC (Live20R) menyala &amp; alamatnya sudah diatur di Pengaturan.</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- WADAH KHUSUS UNTUK CETAK KARTU - sengaja diletakkan SEBAGAI SIBLING dari #icanteen-app
@@ -1348,7 +1399,21 @@
     $('#lblAdminAccess').text('Panel Admin Active');
   }
   var isScanLocked = false;
-  var SCAN_COOLDOWN_MS = 5000;
+  // Jeda setelah SUKSES scan dipersingkat (dulu 5000ms flat untuk semua kasus) - ini
+  // yang paling membatasi kecepatan antrean, karena berlaku bahkan untuk hasil sukses
+  // biasa (kasus paling sering terjadi). Kasus peringatan/gagal tetap diberi jeda lebih
+  // lama (SCAN_COOLDOWN_WARNING_MS) karena petugas perlu waktu membaca & menindaklanjuti.
+  var SCAN_COOLDOWN_MS = 2000;
+  var SCAN_COOLDOWN_WARNING_MS = 3200;
+
+  // Alamat bridge sidik jari lokal (lihat folder bridge/) - default cocok untuk
+  // kasus paling umum (bridge & browser jalan di PC yang sama). Bisa ditimpa
+  // lewat Pengaturan > Sidik Jari, tersimpan per-browser di localStorage
+  // (BUKAN di Supabase, karena tiap kios punya bridge-nya sendiri-sendiri).
+  var DEFAULT_BRIDGE_URL_ = 'http://127.0.0.1:8009';
+  function getBridgeUrl_() {
+    return localStorage.getItem('icanteen_bridge_url') || DEFAULT_BRIDGE_URL_;
+  }
 
   // FILTER SANTRI PUTRA/PUTRI - dipakai bersama oleh kartu metrik kios & Dashboard
   // Analytics. Disimpan per-tablet di localStorage (bukan per-akun/server) supaya kios
@@ -1865,6 +1930,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // EVENT LISTENERS (Perbaikan Klik Admin Area)
   function bindEventListeners() {
     $('#btnSwitchCamera').off('click').on('click', switchCamera);
+    $('#btnToggleTorch').off('click').on('click', toggleTorch);
 
     $('#btnAdminAccess').off('click').on('click', function(e) {
       e.preventDefault();
@@ -2302,6 +2368,106 @@ document.addEventListener('DOMContentLoaded', () => {
       Swal.fire({ icon: 'success', title: 'Disamakan', text: 'Jadwal Senin diterapkan ke semua hari. Jangan lupa klik Simpan Jadwal Makan.', timer: 2000, showConfirmButton: false });
     });
 
+    // ============================================================ SIDIK JARI
+    // Semua permintaan ke bridge PC lokal (lihat folder bridge/) - TIDAK
+    // lewat Supabase, karena bridge yang langsung bicara ke alat Live20R.
+    // Kalau bridge belum jalan/alat belum tercolok, fetch di bawah akan gagal
+    // dengan pesan yang jelas, bukan hang tanpa penjelasan.
+    $('#settingBridgeUrl').val(getBridgeUrl_());
+
+    $('#btnSaveBridgeUrl').off('click').on('click', function() {
+      var url = $('#settingBridgeUrl').val().trim().replace(/\/$/, '');
+      if (!url) url = DEFAULT_BRIDGE_URL_;
+      localStorage.setItem('icanteen_bridge_url', url);
+      $('#settingBridgeUrl').val(url);
+      Swal.fire({ icon: 'success', title: 'Tersimpan', text: 'Alamat bridge disimpan di perangkat/browser ini.', timer: 1500, showConfirmButton: false });
+    });
+
+    $('#btnTestBridgeUrl').off('click').on('click', function() {
+      var $status = $('#bridgeUrlStatus').text('Menguji koneksi...');
+      fetch(getBridgeUrl_() + '/health').then(function(r) { return r.json(); }).then(function(data) {
+        $status.html(
+          '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Bridge aktif - alat ' +
+          (data.device_connected ? '<strong>terhubung</strong>' : '<span class="text-danger">TIDAK terhubung</span>') +
+          ', ' + data.templates_loaded + ' sidik jari termuat.</span>'
+        );
+      }).catch(function() {
+        $status.html('<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Tidak bisa terhubung ke bridge. Pastikan program bridge sudah dijalankan di PC ini.</span>');
+      });
+    });
+
+    // -- Tombol "Pindai Sidik Jari" di Mode Scan (alur 1:N - tempel jari langsung) --
+    $('#btnScanFingerprint').off('click').on('click', function() {
+      if (isScanLocked) return;
+      var $btn = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Tempelkan jari...');
+      fetch(getBridgeUrl_() + '/identify').then(function(r) { return r.json(); }).then(function(res) {
+        $btn.prop('disabled', false).html('<i class="bi bi-fingerprint me-1"></i> Pindai Sidik Jari');
+        if (res.found) {
+          executeScanProcess(res.nis, 'fingerprint');
+        } else {
+          Swal.fire({ icon: 'info', title: 'Tidak Terbaca', text: res.message || 'Sidik jari tidak dikenali.', timer: 2200, showConfirmButton: false });
+        }
+      }).catch(function() {
+        $btn.prop('disabled', false).html('<i class="bi bi-fingerprint me-1"></i> Pindai Sidik Jari');
+        Swal.fire('Gagal', 'Tidak bisa terhubung ke bridge sidik jari. Pastikan program bridge-nya menyala di PC ini (lihat Pengaturan).', 'error');
+      });
+    });
+
+    // -- Tombol sidik jari per-baris di Data Santri: buka modal enroll/hapus --
+    $('#santriTableBody').off('click', '.fingerprint-cell-btn').on('click', '.fingerprint-cell-btn', function() {
+      var nis = $(this).data('nis');
+      var nama = $(this).data('nama');
+      $('#fpModalNis').text(nis);
+      $('#fpModalNama').text(nama);
+      $('#fingerprintModal').data('nis', nis).data('nama', nama);
+      $('#fpModalStatus').html('<span class="text-muted small">Tekan "Mulai Rekam", lalu tempel &amp; angkat jari yang sama sebanyak 3x sesuai instruksi/bunyi alat.</span>');
+      var fpModalEl = document.getElementById('fingerprintModal');
+      (bootstrap.Modal.getInstance(fpModalEl) || new bootstrap.Modal(fpModalEl)).show();
+    });
+
+    $('#btnStartEnrollFingerprint').off('click').on('click', function() {
+      var nis = $('#fingerprintModal').data('nis');
+      var $btn = $(this).prop('disabled', true);
+      $('#fpModalStatus').html('<div class="spinner-border text-emerald mb-2" role="status"></div><br/><span class="small">Merekam... ikuti bunyi/lampu alat, tempel &amp; angkat jari yang sama 3x. Proses ini bisa makan waktu belasan detik.</span>');
+      fetch(getBridgeUrl_() + '/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nis: nis })
+      }).then(function(r) {
+        return r.json().then(function(body) { return { ok: r.ok, body: body }; });
+      }).then(function(result) {
+        $btn.prop('disabled', false);
+        if (result.ok && result.body.success) {
+          $('#fpModalStatus').html('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>' + result.body.message + '</span>');
+          markEnrolledFingerprints_();
+        } else {
+          $('#fpModalStatus').html('<span class="text-danger">' + (result.body.detail || result.body.message || 'Gagal merekam sidik jari.') + '</span>');
+        }
+      }).catch(function() {
+        $btn.prop('disabled', false);
+        $('#fpModalStatus').html('<span class="text-danger">Tidak bisa terhubung ke bridge sidik jari. Pastikan programnya menyala di PC ini.</span>');
+      });
+    });
+
+    $('#btnDeleteEnrollFingerprint').off('click').on('click', function() {
+      var nis = $('#fingerprintModal').data('nis');
+      Swal.fire({
+        icon: 'warning', title: 'Hapus Sidik Jari?',
+        text: 'Sidik jari santri ini (NIS ' + nis + ') akan dihapus dan perlu didaftarkan ulang kalau mau dipakai lagi.',
+        showCancelButton: true, confirmButtonText: 'Hapus', cancelButtonText: 'Batal', confirmButtonColor: '#dc3545'
+      }).then(function(result) {
+        if (!result.isConfirmed) return;
+        fetch(getBridgeUrl_() + '/enroll/' + encodeURIComponent(nis), { method: 'DELETE' })
+          .then(function(r) { return r.json(); })
+          .then(function() {
+            $('#fpModalStatus').html('<span class="text-muted small">Sidik jari dihapus.</span>');
+            markEnrolledFingerprints_();
+          }).catch(function() {
+            Swal.fire('Gagal', 'Tidak bisa terhubung ke bridge sidik jari.', 'error');
+          });
+      });
+    });
+
     $('#btnSaveJadwal').off('click').on('click', function() {
       var jadwalMakan = collectJadwalMakanFromForm();
       var $btn = $(this).prop('disabled', true).text('Menyimpan...');
@@ -2409,7 +2575,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+// loadDashboardData() bisa terpanggil dua kali nyaris bersamaan untuk satu scan yang sama:
+// sekali langsung dari callback executeScanProcess, sekali lagi dari event realtime
+// (subscribeScanRealtime) begitu baris baru di tabel `scan` terdeteksi. Tiap pemanggilan
+// = 4 query Supabase (getDashboardStats + getTodayChartData), jadi tanpa debounce ini
+// setiap scan diam-diam menghabiskan network round-trip 2x lipat - ikut memperlambat
+// giliran scan berikutnya terutama saat antrean ramai. Debounce singkat (300ms) cukup
+// untuk menggabungkan dua pemanggilan itu jadi satu, tanpa mengorbankan "real-time"-nya.
+var _loadDashboardDataTimer = null;
 function loadDashboardData() {
+  clearTimeout(_loadDashboardDataTimer);
+  _loadDashboardDataTimer = setTimeout(loadDashboardDataNow_, 300);
+}
+
+function loadDashboardDataNow_() {
   var currentSession = $('#scanSessionSelect').val() || 'pagi';
 
   callApi('getDashboardStats', { session: currentSession, gender: getGenderFilter_() }, function(res) {
@@ -2586,19 +2765,60 @@ function loadDashboardAnalytics() {
     if (!cam) return Promise.reject(new Error('Kamera tidak ditemukan'));
     return html5Qrcode.start(
       cam.id,
-      { fps: 10, qrbox: function(viewfinderWidth, viewfinderHeight) {
+      { fps: 15, qrbox: function(viewfinderWidth, viewfinderHeight) {
           // Ukuran area target scan dihitung dinamis dari ukuran video yang benar-benar
           // dirender (bukan angka tetap), supaya tidak pernah lebih besar/mepet dengan
           // kotak kamera - itu penyebab kamera gagal start pada perubahan sebelumnya.
           var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
           var size = Math.floor(minEdge * 0.7);
           return { width: size, height: size };
-        }
+        },
+        // Minta resolusi lebih tinggi (kalau kameranya mendukung) - membantu detail kode
+        // tetap terbaca di ruangan redup, dibanding resolusi default yang sering rendah.
+        // Pakai "ideal" (bukan exact/min) supaya tetap aman di kamera yang resolusinya
+        // lebih rendah dari ini - browser akan otomatis pakai yang paling mendekati.
+        videoConstraints: { width: { ideal: 1280 }, height: { ideal: 720 } }
       },
       function(decodedText) { executeScanProcess(decodedText, 'kamera'); },
       function() { /* frame tanpa kode terbaca - abaikan, ini dipanggil terus-menerus */ }
     ).then(function() {
       isCameraRunning = true;
+      detectTorchSupport_();
+    });
+  }
+
+  // LAMPU KILAT (TORCH) - membantu ruangan redup tanpa perlu ganti perangkat.
+  // Catatan penting: HANYA didukung di beberapa kombinasi Android + Chrome/browser
+  // berbasis Chromium yang kameranya punya LED flash. Safari/iOS (semua browser di
+  // iOS wajib pakai mesin Safari) TIDAK mengekspos kontrol torch lewat web sama sekali -
+  // itu keterbatasan platform, bukan bug di aplikasi ini. Makanya tombolnya disembunyikan
+  // otomatis kalau tidak didukung, alih-alih ditampilkan tapi tidak berfungsi.
+  var isTorchOn = false;
+  var isTorchSupported = false;
+
+  function detectTorchSupport_() {
+    isTorchOn = false;
+    isTorchSupported = false;
+    try {
+      var caps = html5Qrcode.getRunningTrackCapabilities();
+      isTorchSupported = !!(caps && caps.torch);
+    } catch (e) { /* browser lama / API belum tersedia - anggap tidak didukung */ }
+    $('#btnToggleTorch').toggleClass('d-none', !isTorchSupported)
+      .removeClass('btn-warning').addClass('btn-light');
+  }
+
+  function toggleTorch() {
+    if (!html5Qrcode || !isCameraRunning || !isTorchSupported) return;
+    var next = !isTorchOn;
+    var $btn = $('#btnToggleTorch').prop('disabled', true);
+    html5Qrcode.applyVideoConstraints({ advanced: [{ torch: next }] }).then(function() {
+      isTorchOn = next;
+      $btn.toggleClass('btn-warning', isTorchOn).toggleClass('btn-light', !isTorchOn);
+    }).catch(function(e) {
+      console.warn('Gagal mengatur lampu kilat:', e);
+      Swal.fire('Info', 'Kamera/browser ini ternyata tidak bisa dikendalikan lampu kilatnya dari aplikasi.', 'info');
+    }).finally(function() {
+      $btn.prop('disabled', false);
     });
   }
 
@@ -2636,7 +2856,10 @@ function loadDashboardAnalytics() {
     }
     cameraDeviceList = [];
     activeCameraIndex = 0;
+    isTorchOn = false;
+    isTorchSupported = false;
     $('#btnSwitchCamera').addClass('d-none');
+    $('#btnToggleTorch').addClass('d-none').removeClass('btn-warning').addClass('btn-light');
   }
 
   function setupHIDListener() {
@@ -2749,7 +2972,8 @@ function renderQueuedScan_(code, session) {
             '<p style="font-size:.8rem;">Tercatat makan pukul: ' + res.data.jamSebelumnya + '</p>' +
             '<p style="font-size:.8rem;">Boleh nambah setelah jeda ' + Math.round(res.data.remainingMinutes || 0) + ' menit lagi.</p>' +
           '</div>' +
-        '</div>'
+        '</div>',
+        SCAN_COOLDOWN_WARNING_MS
       );
 
     } else if (status === 'ELIGIBLE_FOR_SECOND') {
@@ -2817,14 +3041,16 @@ function renderQueuedScan_(code, session) {
                   '<h1 class="fw-bold" style="font-size:1.3rem;">SUDAH TERCATAT NAMBAH</h1>' +
                   '<p style="font-size:.85rem;">' + s3.nama + ' sudah mengambil jatah kedua pukul ' + res2.data.jamNambah + '</p>' +
                 '</div>' +
-              '</div>'
+              '</div>',
+              SCAN_COOLDOWN_WARNING_MS
             );
           } else {
             playAudioDanger();
             showTerminalResult('bg-scan-danger',
               '<div class="scan-icon-circle mb-2"><i class="bi bi-x-circle"></i></div>' +
               '<h1 class="fw-bold mb-0" style="font-size:1.3rem;">GAGAL MENCATAT</h1>' +
-              '<p class="mt-1" style="font-size:.85rem;">' + ((res2 && res2.message) || 'Silakan scan ulang.') + '</p>'
+              '<p class="mt-1" style="font-size:.85rem;">' + ((res2 && res2.message) || 'Silakan scan ulang.') + '</p>',
+              SCAN_COOLDOWN_WARNING_MS
             );
           }
           loadDashboardData();
@@ -2847,7 +3073,8 @@ function renderQueuedScan_(code, session) {
             '<h2 style="font-size:1.05rem;">' + s4.nama + '</h2>' +
             '<p style="font-size:.8rem;">Makan pertama: ' + res.data.jamPertama + ' • Nambah: ' + res.data.jamNambah + '</p>' +
           '</div>' +
-        '</div>'
+        '</div>',
+        SCAN_COOLDOWN_WARNING_MS
       );
 
     } else {
@@ -2855,7 +3082,8 @@ function renderQueuedScan_(code, session) {
       showTerminalResult('bg-scan-danger',
         '<div class="scan-icon-circle mb-2"><i class="bi bi-x-circle"></i></div>' +
         '<h1 class="fw-bold mb-0" style="font-size:1.3rem;">DATA TIDAK DITEMUKAN</h1>' +
-        '<p class="mt-1" style="font-size:.85rem;">Kode barcode/QR tidak terdaftar dalam database.</p>'
+        '<p class="mt-1" style="font-size:.85rem;">Kode barcode/QR tidak terdaftar dalam database.</p>',
+        SCAN_COOLDOWN_WARNING_MS
       );
     }
   }
@@ -2911,6 +3139,7 @@ function renderQueuedScan_(code, session) {
         res.data.forEach(function(s) {
           allSantriCache[s.nis] = s;
           html += '<tr><td>' + s.nis + '</td><td><strong>' + s.nama + '</strong></td><td>' + s.jk + '</td><td>' + s.kelas + '</td><td>' + s.asrama + '</td><td><span class="badge bg-emerald-light text-dark">' + s.status + '</span></td>' +
+            '<td><button type="button" class="btn btn-sm rounded-pill btn-outline-secondary fingerprint-cell-btn" data-nis="' + s.nis + '" data-nama="' + s.nama.replace(/"/g, '&quot;') + '" title="Daftarkan/Ubah Sidik Jari"><i class="bi bi-fingerprint"></i> <span class="fp-status-text">-</span></button></td>' +
             '<td><button class="btn btn-sm btn-outline-emerald border-emerald text-emerald me-1" onclick="editSantri(\'' + s.nis + '\')"><i class="bi bi-pencil-square"></i></button>' +
             '<button class="btn btn-sm btn-outline-danger" onclick="deleteSantri(\'' + s.nis + '\')"><i class="bi bi-trash"></i></button></td></tr>';
         });
@@ -2924,7 +3153,27 @@ function renderQueuedScan_(code, session) {
         }
         $('#santriTableBody').html(html);
         $('#tableSantri').DataTable();
+        markEnrolledFingerprints_();
       }
+    });
+  }
+
+  // Tandai baris mana yang sudah punya sidik jari terdaftar (tombol jadi hijau +
+  // teks "Terdaftar") vs yang belum ("Daftarkan"). Dipisah dari loadSantriTable
+  // supaya juga bisa dipanggil ulang sendiri setelah enroll/hapus dari modal,
+  // tanpa perlu reload seluruh tabel santri.
+  function markEnrolledFingerprints_() {
+    callApi('getFingerprintNisList', {}, function(res) {
+      if (!res || !res.success) return;
+      var enrolledSet = {};
+      (res.data || []).forEach(function(nis) { enrolledSet[nis] = true; });
+      $('.fingerprint-cell-btn').each(function() {
+        var nis = $(this).data('nis');
+        var enrolled = !!enrolledSet[nis];
+        $(this).toggleClass('btn-outline-secondary', !enrolled)
+          .toggleClass('btn-outline-emerald border-emerald text-emerald', enrolled)
+          .find('.fp-status-text').text(enrolled ? 'Terdaftar' : 'Daftarkan');
+      });
     });
   }
 
