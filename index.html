@@ -639,14 +639,8 @@
 
                 <div class="mt-2 pt-2 border-top">
                   <label class="kiosk-manual-label d-block mb-1" style="color:#64748b;">Sidik Jari (Bridge PC - opsional)</label>
-                  <!-- Otomatis "mendengarkan" alat di background selama Mode Scan terbuka - santri
-                       tinggal tempel jari, TIDAK perlu klik apa pun. Tombol di bawah cuma cadangan
-                       manual kalau perlu memaksa satu percobaan instan (jarang dibutuhkan). -->
-                  <div id="fingerprintAutoStatus" class="small text-muted mb-1">
-                    <i class="bi bi-dash-circle me-1"></i>Sidik jari: tidak dipakai di kios ini
-                  </div>
-                  <button type="button" id="btnScanFingerprint" class="btn btn-outline-secondary w-100 rounded-3 btn-sm d-none">
-                    <i class="bi bi-fingerprint me-1"></i> Pindai Manual (cadangan)
+                  <button type="button" id="btnScanFingerprint" class="btn btn-outline-emerald border-emerald text-emerald w-100 rounded-3 btn-sm">
+                    <i class="bi bi-fingerprint me-1"></i> Pindai Sidik Jari
                   </button>
                 </div>
               </div>
@@ -1421,102 +1415,6 @@
     return localStorage.getItem('icanteen_bridge_url') || DEFAULT_BRIDGE_URL_;
   }
 
-  // ============================================================ AUTO-SCAN SIDIK JARI
-  // Begitu Mode Scan dibuka, sistem otomatis "mendengarkan" bridge terus-menerus di
-  // background - santri tinggal tempel jari, TIDAK perlu ada yang klik tombol apa pun,
-  // persis seperti kamera QR yang juga otomatis. Kalau bridge tidak terpasang/tidak
-  // menyala, ini gagal diam-diam di background (indikator status jadi merah) - TIDAK
-  // mengganggu kios yang memang tidak pakai sidik jari sama sekali.
-  var fingerprintAutoScanActive = false;
-  var FINGERPRINT_HEALTH_RETRY_MS = 15000; // jeda antar cek ulang kalau bridge belum/tidak terhubung
-
-  function startFingerprintAutoScan_() {
-    if (fingerprintAutoScanActive) return; // sudah jalan, jangan dobel
-    fingerprintAutoScanActive = true;
-    fingerprintHealthTick_();
-  }
-
-  function stopFingerprintAutoScan_() {
-    fingerprintAutoScanActive = false;
-  }
-
-  function setFingerprintStatus_(mode, text) {
-    // mode: 'off' (abu-abu, belum ketahuan/tidak dipakai), 'ready' (hijau), 'down' (merah)
-    var icon = mode === 'ready' ? 'bi-fingerprint text-success' : (mode === 'down' ? 'bi-x-circle text-danger' : 'bi-dash-circle text-muted');
-    $('#fingerprintAutoStatus').html('<i class="bi ' + icon + ' me-1"></i>' + text);
-  }
-
-  // Cek /health dulu (ringan) sebelum masuk mode "dengar terus" - supaya kios yang
-  // memang tidak pakai sidik jari tidak menghajar network dengan percobaan /identify
-  // (yang masing-masing menunggu sampai 10 detik) berulang-ulang tanpa henti.
-  function fingerprintHealthTick_() {
-    if (!fingerprintAutoScanActive) return;
-    fetch(getBridgeUrl_() + '/health').then(function(r) { return r.json(); }).then(function(data) {
-      if (!fingerprintAutoScanActive) return;
-      if (data && data.device_connected) {
-        setFingerprintStatus_('ready', 'Sidik jari siap - tempelkan jari kapan saja');
-        $('#btnScanFingerprint').removeClass('d-none');
-        runFingerprintAutoScanLoop_();
-      } else {
-        setFingerprintStatus_('down', 'Bridge aktif tapi alat tidak terhubung');
-        $('#btnScanFingerprint').addClass('d-none');
-        setTimeout(fingerprintHealthTick_, FINGERPRINT_HEALTH_RETRY_MS);
-      }
-    }).catch(function() {
-      if (!fingerprintAutoScanActive) return;
-      setFingerprintStatus_('off', 'Sidik jari: tidak dipakai di kios ini');
-      $('#btnScanFingerprint').addClass('d-none');
-      setTimeout(fingerprintHealthTick_, FINGERPRINT_HEALTH_RETRY_MS);
-    });
-  }
-
-  // Loop utama: selama Mode Scan masih terbuka & bridge sehat, terus-menerus minta
-  // bridge menunggu satu penempelan jari (/identify sendiri sudah menunggu sampai
-  // 10 detik di sisi bridge), lalu proses hasilnya, lalu ulangi lagi - tanpa jeda
-  // tambahan di sisi sini, karena /identify sendiri sudah "memblokir" secukupnya.
-  function runFingerprintAutoScanLoop_() {
-    if (!fingerprintAutoScanActive) return;
-    if (isScanLocked) {
-      // Lagi menampilkan hasil scan (dari kamera/manual/sidik jari lain) - jangan
-      // dengarkan dulu, supaya tidak dobel proses & supaya pesan di layar tidak
-      // buru-buru tertimpa. Coba lagi sebentar lagi.
-      setTimeout(runFingerprintAutoScanLoop_, 400);
-      return;
-    }
-    fetch(getBridgeUrl_() + '/identify').then(function(r) { return r.json(); }).then(function(res) {
-      if (!fingerprintAutoScanActive) return;
-      if (res.found) {
-        executeScanProcess(res.nis, 'fingerprint');
-      }
-      // "tidak ditemukan"/"waktu habis" TIDAK ditampilkan sebagai popup di sini -
-      // ini loop background yang berjalan diam-diam, popup akan sangat mengganggu
-      // kalau muncul tiap ~10 detik. Cukup lanjut dengarkan lagi.
-      runFingerprintAutoScanLoop_();
-    }).catch(function() {
-      if (!fingerprintAutoScanActive) return;
-      // Bridge yang tadinya sehat tiba-tiba tidak bisa dihubungi (mis. program
-      // bridge ditutup) - turun lagi ke mode cek /health berkala, jangan terus
-      // menghajar /identify yang pasti gagal terus.
-      setFingerprintStatus_('down', 'Kehilangan koneksi ke bridge - mencoba lagi...');
-      setTimeout(fingerprintHealthTick_, FINGERPRINT_HEALTH_RETRY_MS);
-    });
-  }
-
-  // Ubah body error dari bridge (FastAPI) jadi teks yang bisa dibaca manusia.
-  // FastAPI punya 2 bentuk error yang beda: HTTPException biasa -> detail berupa
-  // TEKS ("detail": "pesan..."), tapi error validasi (kode 422, mis. field yang
-  // salah tipe) -> detail berupa DAFTAR OBJEK ("detail": [{msg: "...", ...}, ...]).
-  // Tanpa fungsi ini, bentuk kedua tampil sebagai "[object Object]" kalau
-  // langsung digabung ke string.
-  function bridgeErrorText_(body) {
-    if (!body) return 'Gagal menghubungi bridge sidik jari.';
-    if (typeof body.detail === 'string') return body.detail;
-    if (Array.isArray(body.detail)) {
-      return body.detail.map(function(e) { return e.msg || JSON.stringify(e); }).join('; ');
-    }
-    return body.message || 'Gagal memproses permintaan sidik jari.';
-  }
-
   // FILTER SANTRI PUTRA/PUTRI - dipakai bersama oleh kartu metrik kios & Dashboard
   // Analytics. Disimpan per-tablet di localStorage (bukan per-akun/server) supaya kios
   // yang ditempatkan di kantin putra dan kios di kantin putri masing-masing tetap
@@ -1748,7 +1646,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashboardData();
     loadAppSettings();
     initCameraScanner();
-    startFingerprintAutoScan_();
     setupHIDListener();
     bindEventListeners();
 
@@ -2500,35 +2397,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // -- Tombol "Pindai Sidik Jari" di Mode Scan (alur 1:N - tempel jari langsung) --
-    // -- Tombol manual: cadangan kalau admin ingin memaksa 1 percobaan instan.
-    // Loop otomatis (di bawah) sudah selalu "mendengarkan" di background begitu
-    // Mode Scan dibuka, jadi tombol ini jarang benar-benar dibutuhkan.
     $('#btnScanFingerprint').off('click').on('click', function() {
       if (isScanLocked) return;
       var $btn = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Tempelkan jari...');
       fetch(getBridgeUrl_() + '/identify').then(function(r) { return r.json(); }).then(function(res) {
-        $btn.prop('disabled', false).html('<i class="bi bi-fingerprint me-1"></i> Pindai Manual (cadangan)');
+        $btn.prop('disabled', false).html('<i class="bi bi-fingerprint me-1"></i> Pindai Sidik Jari');
         if (res.found) {
           executeScanProcess(res.nis, 'fingerprint');
         } else {
           Swal.fire({ icon: 'info', title: 'Tidak Terbaca', text: res.message || 'Sidik jari tidak dikenali.', timer: 2200, showConfirmButton: false });
         }
       }).catch(function() {
-        $btn.prop('disabled', false).html('<i class="bi bi-fingerprint me-1"></i> Pindai Manual (cadangan)');
+        $btn.prop('disabled', false).html('<i class="bi bi-fingerprint me-1"></i> Pindai Sidik Jari');
         Swal.fire('Gagal', 'Tidak bisa terhubung ke bridge sidik jari. Pastikan program bridge-nya menyala di PC ini (lihat Pengaturan).', 'error');
       });
     });
 
     // -- Tombol sidik jari per-baris di Data Santri: buka modal enroll/hapus --
     $('#santriTableBody').off('click', '.fingerprint-cell-btn').on('click', '.fingerprint-cell-btn', function() {
-      // PENTING: pakai .attr(), BUKAN .data() - jQuery .data() otomatis mengubah
-      // atribut yang "kelihatan seperti angka" jadi tipe Number JS. NIS santri
-      // sering 15-16 digit, melebihi batas presisi aman Number JS (2^53), jadi
-      // kalau lewat .data() risikonya: (1) digit terakhir NIS bisa berubah/salah,
-      // (2) saat dikirim ke server jadi angka JSON padahal servernya minta teks,
-      // menyebabkan error 422. .attr() selalu mengembalikan teks apa adanya.
-      var nis = $(this).attr('data-nis');
-      var nama = $(this).attr('data-nama');
+      var nis = $(this).data('nis');
+      var nama = $(this).data('nama');
       $('#fpModalNis').text(nis);
       $('#fpModalNama').text(nama);
       $('#fingerprintModal').data('nis', nis).data('nama', nama);
@@ -2553,7 +2441,7 @@ document.addEventListener('DOMContentLoaded', () => {
           $('#fpModalStatus').html('<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>' + result.body.message + '</span>');
           markEnrolledFingerprints_();
         } else {
-          $('#fpModalStatus').html('<span class="text-danger">' + bridgeErrorText_(result.body) + '</span>');
+          $('#fpModalStatus').html('<span class="text-danger">' + (result.body.detail || result.body.message || 'Gagal merekam sidik jari.') + '</span>');
         }
       }).catch(function() {
         $btn.prop('disabled', false);
@@ -2606,10 +2494,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (viewName === 'scanMode') {
       initCameraScanner();
-      startFingerprintAutoScan_();
     } else {
       stopCameraScanner();
-      stopFingerprintAutoScan_();
     }
 
     if (viewName === 'santri') loadSantriTable();
@@ -2841,11 +2727,14 @@ function loadDashboardAnalytics() {
         throw new Error('Tidak ada kamera terdeteksi pada perangkat ini');
       }
 
-      // Daftar kamera ini SEKARANG cuma dipakai untuk menentukan apakah tombol ganti
-      // kamera perlu ditampilkan (percuma ditampilkan kalau HP-nya cuma 1 kamera).
-      // Pemilihan kamera AKTUALnya lewat facingMode di startCameraWithFacing_(),
-      // bukan dari ID di daftar ini - lihat komentar di startCameraWithFacing_.
-      cameraDeviceList = devices;
+      // Urutkan supaya kamera DEPAN (front/user/facetime) ada di depan daftar -
+      // itu yang dipakai pertama kali, tapi admin tetap bisa pindah ke kamera belakang
+      // lewat tombol ganti kamera kalau diperlukan.
+      cameraDeviceList = devices.slice().sort(function(a, b) {
+        var aFront = /front|user|face/i.test(a.label || '') ? 0 : 1;
+        var bFront = /front|user|face/i.test(b.label || '') ? 0 : 1;
+        return aFront - bFront;
+      });
       activeCameraIndex = 0;
 
       $('#btnSwitchCamera').toggleClass('d-none', cameraDeviceList.length <= 1);
@@ -2871,62 +2760,31 @@ function loadDashboardAnalytics() {
     );
   }
 
-  // Kamera aktif dipilih lewat facingMode ("user" = depan, "environment" = belakang),
-  // BUKAN lewat ID perangkat dari getCameras(). Ini disengaja: di banyak HP Android,
-  // memilih kamera lewat ID device tidak selalu konsisten - terutama setelah kamera
-  // di-stop lalu dinyalakan ulang (persis yang terjadi tiap kali tombol ganti kamera
-  // ditekan), browser bisa "salah" balik ke kamera depan walau ID yang diminta adalah
-  // ID kamera belakang. facingMode diproses langsung oleh browser/OS saat memilih
-  // kamera fisik mana yang dipakai, jauh lebih bisa diandalkan untuk kasus ganti
-  // depan/belakang ini. Default "user" (depan) dipertahankan sesuai desain awal:
-  // tablet kios biasanya disandarkan menghadap santri, jadi kamera DEPAN tablet-lah
-  // yang menghadap ke arah santri, bukan kamera belakang.
-  var currentFacingMode = 'user';
-
-  function buildScanConfig_() {
-    return {
-      fps: 15,
-      qrbox: function(viewfinderWidth, viewfinderHeight) {
-        // Ukuran area target scan dihitung dinamis dari ukuran video yang benar-benar
-        // dirender (bukan angka tetap), supaya tidak pernah lebih besar/mepet dengan
-        // kotak kamera - itu penyebab kamera gagal start pada perubahan sebelumnya.
-        var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-        var size = Math.floor(minEdge * 0.7);
-        return { width: size, height: size };
-      },
-      // Minta resolusi lebih tinggi (kalau kameranya mendukung) - membantu detail kode
-      // tetap terbaca di ruangan redup, dibanding resolusi default yang sering rendah.
-      // Pakai "ideal" (bukan exact/min) supaya tetap aman di kamera yang resolusinya
-      // lebih rendah dari ini - browser akan otomatis pakai yang paling mendekati.
-      videoConstraints: { width: { ideal: 1280 }, height: { ideal: 720 } }
-    };
-  }
-
   function startCameraAt(index) {
-    // "index" dipertahankan di nama fungsi supaya pemanggil lama tidak perlu diubah,
-    // tapi sekarang dipakai untuk menentukan facingMode target, bukan device ID.
-    var facing = index === 0 ? 'user' : 'environment';
-    return startCameraWithFacing_(facing);
-  }
-
-  function startCameraWithFacing_(facing) {
-    var onSuccess = function(decodedText) { executeScanProcess(decodedText, 'kamera'); };
-    var onFrame = function() { /* frame tanpa kode terbaca - abaikan, dipanggil terus-menerus */ };
-
-    // Coba dulu dengan "exact" - memaksa browser memilih kamera dengan facing itu
-    // PERSIS, gagal (OverconstrainedError) kalau HP-nya cuma punya 1 kamera fisik
-    // untuk facing tsb. Kalau gagal, coba lagi TANPA "exact" (browser boleh pilih
-    // yang paling mendekati) sebagai jaring pengaman, supaya kamera tetap menyala
-    // walau tidak 100% sesuai keinginan daripada gagal total.
-    return html5Qrcode.start({ facingMode: { exact: facing } }, buildScanConfig_(), onSuccess, onFrame)
-      .catch(function() {
-        return html5Qrcode.start({ facingMode: facing }, buildScanConfig_(), onSuccess, onFrame);
-      })
-      .then(function() {
-        currentFacingMode = facing;
-        isCameraRunning = true;
-        detectTorchSupport_();
-      });
+    var cam = cameraDeviceList[index];
+    if (!cam) return Promise.reject(new Error('Kamera tidak ditemukan'));
+    return html5Qrcode.start(
+      cam.id,
+      { fps: 15, qrbox: function(viewfinderWidth, viewfinderHeight) {
+          // Ukuran area target scan dihitung dinamis dari ukuran video yang benar-benar
+          // dirender (bukan angka tetap), supaya tidak pernah lebih besar/mepet dengan
+          // kotak kamera - itu penyebab kamera gagal start pada perubahan sebelumnya.
+          var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          var size = Math.floor(minEdge * 0.7);
+          return { width: size, height: size };
+        },
+        // Minta resolusi lebih tinggi (kalau kameranya mendukung) - membantu detail kode
+        // tetap terbaca di ruangan redup, dibanding resolusi default yang sering rendah.
+        // Pakai "ideal" (bukan exact/min) supaya tetap aman di kamera yang resolusinya
+        // lebih rendah dari ini - browser akan otomatis pakai yang paling mendekati.
+        videoConstraints: { width: { ideal: 1280 }, height: { ideal: 720 } }
+      },
+      function(decodedText) { executeScanProcess(decodedText, 'kamera'); },
+      function() { /* frame tanpa kode terbaca - abaikan, ini dipanggil terus-menerus */ }
+    ).then(function() {
+      isCameraRunning = true;
+      detectTorchSupport_();
+    });
   }
 
   // LAMPU KILAT (TORCH) - membantu ruangan redup tanpa perlu ganti perangkat.
@@ -2965,15 +2823,14 @@ function loadDashboardAnalytics() {
   }
 
   function switchCamera() {
-    if (!html5Qrcode || !isCameraRunning) return;
+    if (!html5Qrcode || !isCameraRunning || cameraDeviceList.length <= 1) return;
     var $btn = $('#btnSwitchCamera').prop('disabled', true);
-    var nextFacing = currentFacingMode === 'user' ? 'environment' : 'user';
     html5Qrcode.stop().then(function() {
       isCameraRunning = false;
-      return startCameraWithFacing_(nextFacing);
+      activeCameraIndex = (activeCameraIndex + 1) % cameraDeviceList.length;
+      return startCameraAt(activeCameraIndex);
     }).catch(function(e) {
-      console.warn('Gagal ganti kamera:', e);
-      Swal.fire({ icon: 'warning', title: 'Kamera Tidak Ditemukan', text: 'Perangkat ini sepertinya cuma punya 1 kamera untuk sisi itu.', timer: 2000, showConfirmButton: false });
+      console.warn(e);
     }).finally(function() {
       $btn.prop('disabled', false);
     });
@@ -2999,7 +2856,6 @@ function loadDashboardAnalytics() {
     }
     cameraDeviceList = [];
     activeCameraIndex = 0;
-    currentFacingMode = 'user'; // reset supaya lain kali kamera dibuka, mulai dari depan lagi
     isTorchOn = false;
     isTorchSupported = false;
     $('#btnSwitchCamera').addClass('d-none');
@@ -3312,7 +3168,7 @@ function renderQueuedScan_(code, session) {
       var enrolledSet = {};
       (res.data || []).forEach(function(nis) { enrolledSet[nis] = true; });
       $('.fingerprint-cell-btn').each(function() {
-        var nis = $(this).attr('data-nis'); // .attr(), bukan .data() - lihat catatan di handler klik di atas
+        var nis = $(this).data('nis');
         var enrolled = !!enrolledSet[nis];
         $(this).toggleClass('btn-outline-secondary', !enrolled)
           .toggleClass('btn-outline-emerald border-emerald text-emerald', enrolled)
