@@ -3141,6 +3141,7 @@ function renderQueuedScan_(code, session) {
     } else if (status === 'ELIGIBLE_FOR_SECOND') {
       // Jeda makan sudah lewat -> tawarkan opsi nambah, TUNGGU santri menekan konfirmasi sendiri.
       var s3 = res.data.santri;
+      playAudioWarning(); // bunyi saat tawaran nambah muncul, sama seperti saat kena jeda
       card.addClass('bg-scan-warning');
       content.html(
         '<div class="d-flex align-items-center justify-content-center gap-3 flex-wrap">' +
@@ -3250,34 +3251,28 @@ function renderQueuedScan_(code, session) {
     }
   }
 
-  function playAudioSuccess() {
-    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-    var osc = ctx.createOscillator();
-    osc.connect(ctx.destination);
-    osc.frequency.value = 800;
-    osc.start();
-    osc.stop(ctx.currentTime + 0.15);
+  // Satu AudioContext dipakai ulang (membuat baru tiap bunyi bisa mentok batas browser
+  // dan bisa tertahan "suspended" kalau tidak ada interaksi pengguna, mis. scan sidik jari).
+  var _sharedAudioCtx = null;
+  function getAudioCtx_() {
+    if (!_sharedAudioCtx) _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_sharedAudioCtx.state === 'suspended') _sharedAudioCtx.resume();
+    return _sharedAudioCtx;
   }
-
-  function playAudioWarning() {
-    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-    var osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.connect(ctx.destination);
-    osc.frequency.value = 350;
-    osc.start();
-    osc.stop(ctx.currentTime + 0.3);
+  function playBeep_(type, freq, durSec) {
+    try {
+      var ctx = getAudioCtx_();
+      var osc = ctx.createOscillator();
+      osc.type = type;
+      osc.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.start();
+      osc.stop(ctx.currentTime + durSec);
+    } catch (e) { console.warn('Audio gagal:', e); }
   }
-
-  function playAudioDanger() {
-    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-    var osc = ctx.createOscillator();
-    osc.type = 'square';
-    osc.connect(ctx.destination);
-    osc.frequency.value = 180;
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
-  }
+  function playAudioSuccess() { playBeep_('sine', 800, 0.15); }
+  function playAudioWarning() { playBeep_('sawtooth', 350, 0.3); }
+  function playAudioDanger()  { playBeep_('square', 180, 0.4); }
 
   function initChart() {
     var ctx = document.getElementById('chartKehadiran').getContext('2d');
