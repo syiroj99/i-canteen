@@ -15,7 +15,7 @@
 //    untuk kunjungan berikutnya.
 // ============================================================================
 
-const CACHE_VERSION = 'icanteen-v6'; // dinaikkan: perbaikan bug NIS besar ke-bulatkan jQuery .data() + pesan error enroll sidik jari
+const CACHE_VERSION = 'icanteen-v7'; // dinaikkan: SW tidak lagi menyentuh request ke bridge sidik jari (cache lama /identify dibuang)
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -81,6 +81,17 @@ self.addEventListener('fetch', (event) => {
     return; // biarkan browser tangani langsung ke network
   }
 
+  // PENTING: jangan pernah cache/ganggu request ke bridge sidik jari lokal
+  // (127.0.0.1 / localhost, mis. /identify, /health, /enroll). Respons /identify
+  // bersifat sesaat; kalau ikut di-cache oleh strategi stale-while-revalidate di
+  // bawah, panggilan berikutnya langsung dijawab dari cache (instan) sehingga
+  // loop auto-scan berputar tanpa jeda dan membanjiri browser + bridge.
+  if (url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname === '[::1]') {
+    return;
+  }
+
+  // Hanya aset same-origin & CDN statis yang boleh di-cache oleh handler di bawah.
+  // (Navigasi halaman tetap ditangani di bawah.)
   // Navigasi halaman (buka/refresh app) -> network-first, fallback ke shell.
   if (req.mode === 'navigate') {
     event.respondWith(

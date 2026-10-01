@@ -1451,7 +1451,7 @@
   // (yang masing-masing menunggu sampai 10 detik) berulang-ulang tanpa henti.
   function fingerprintHealthTick_() {
     if (!fingerprintAutoScanActive) return;
-    fetch(getBridgeUrl_() + '/health').then(function(r) { return r.json(); }).then(function(data) {
+    fetch(getBridgeUrl_() + '/health', { cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(data) {
       if (!fingerprintAutoScanActive) return;
       if (data && data.device_connected) {
         setFingerprintStatus_('ready', 'Sidik jari siap - tempelkan jari kapan saja');
@@ -1474,31 +1474,49 @@
   // bridge menunggu satu penempelan jari (/identify sendiri sudah menunggu sampai
   // 10 detik di sisi bridge), lalu proses hasilnya, lalu ulangi lagi - tanpa jeda
   // tambahan di sisi sini, karena /identify sendiri sudah "memblokir" secukupnya.
-  function runFingerprintAutoScanLoop_() {
-    if (!fingerprintAutoScanActive) return;
+  var fingerprintLoopGen_ = 0;           // penanda "generasi" loop, supaya loop lama mati saat loop baru dimulai
+  var FINGERPRINT_MIN_GAP_MS = 300;      // jeda minimum antar panggilan /identify (pengaman anti-banjir)
+  var fingerprintFailStreak_ = 0;
+
+  function runFingerprintAutoScanLoop_(gen) {
+    if (gen === undefined) gen = ++fingerprintLoopGen_;   // pemanggilan baru = generasi baru
+    if (!fingerprintAutoScanActive || gen !== fingerprintLoopGen_) return;
     if (isScanLocked) {
-      // Lagi menampilkan hasil scan (dari kamera/manual/sidik jari lain) - jangan
-      // dengarkan dulu, supaya tidak dobel proses & supaya pesan di layar tidak
-      // buru-buru tertimpa. Coba lagi sebentar lagi.
-      setTimeout(runFingerprintAutoScanLoop_, 400);
+      // Lagi menampilkan hasil scan - jangan dengarkan dulu, coba lagi sebentar lagi.
+      setTimeout(function () { runFingerprintAutoScanLoop_(gen); }, 400);
       return;
     }
-    fetch(getBridgeUrl_() + '/identify').then(function(r) { return r.json(); }).then(function(res) {
-      if (!fingerprintAutoScanActive) return;
+    var startedAt = Date.now();
+    function again() {
+      // Jaga jeda minimum: kalau /identify kembali terlalu cepat (error / respons instan),
+      // jangan langsung diulang tanpa jeda.
+      var elapsed = Date.now() - startedAt;
+      var wait = Math.max(FINGERPRINT_MIN_GAP_MS - elapsed, 0);
+      if (fingerprintFailStreak_ > 0) wait = Math.max(wait, Math.min(1000 * fingerprintFailStreak_, 10000));
+      setTimeout(function () { runFingerprintAutoScanLoop_(gen); }, wait);
+    }
+    fetch(getBridgeUrl_() + '/identify', { cache: 'no-store' }).then(function(r) {
+      if (!r.ok) throw new Error('bridge status ' + r.status);
+      return r.json();
+    }).then(function(res) {
+      if (!fingerprintAutoScanActive || gen !== fingerprintLoopGen_) return;
+      fingerprintFailStreak_ = 0;
       if (res.found) {
         executeScanProcess(res.nis, 'fingerprint');
       }
-      // "tidak ditemukan"/"waktu habis" TIDAK ditampilkan sebagai popup di sini -
-      // ini loop background yang berjalan diam-diam, popup akan sangat mengganggu
-      // kalau muncul tiap ~10 detik. Cukup lanjut dengarkan lagi.
-      runFingerprintAutoScanLoop_();
-    }).catch(function() {
-      if (!fingerprintAutoScanActive) return;
-      // Bridge yang tadinya sehat tiba-tiba tidak bisa dihubungi (mis. program
-      // bridge ditutup) - turun lagi ke mode cek /health berkala, jangan terus
-      // menghajar /identify yang pasti gagal terus.
-      setFingerprintStatus_('down', 'Kehilangan koneksi ke bridge - mencoba lagi...');
-      setTimeout(fingerprintHealthTick_, FINGERPRINT_HEALTH_RETRY_MS);
+      again();
+    }).catch(function(err) {
+      if (!fingerprintAutoScanActive || gen !== fingerprintLoopGen_) return;
+      fingerprintFailStreak_++;
+      console.warn('[sidik jari] /identify gagal:', err);
+      if (fingerprintFailStreak_ >= 5) {
+        // Gagal berulang: turun ke mode cek /health berkala.
+        fingerprintFailStreak_ = 0;
+        setFingerprintStatus_('down', 'Bridge bermasalah - mencoba lagi...');
+        setTimeout(fingerprintHealthTick_, FINGERPRINT_HEALTH_RETRY_MS);
+      } else {
+        again();
+      }
     });
   }
 
