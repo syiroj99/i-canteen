@@ -3309,28 +3309,47 @@ function renderQueuedScan_(code, session) {
           $('#tableSantri').DataTable().destroy();
         }
         $('#santriTableBody').html(html);
-        $('#tableSantri').DataTable();
+        var dt = $('#tableSantri').DataTable();
+        // PENTING: DataTables cuma me-render baris untuk HALAMAN YANG SEDANG AKTIF
+        // ke DOM (baris halaman lain tidak ada di DOM sampai halaman itu dibuka).
+        // markEnrolledFingerprints_() yang menandai tombol "Terdaftar/Daftarkan"
+        // cuma menjangkau baris yang ADA di DOM saat itu dipanggil (halaman 1 saja,
+        // waktu tabel baru dimuat) - makanya tanpa event "draw" ini, baris di
+        // halaman 2 dst selamanya cuma menampilkan "-" (belum pernah ditandai).
+        // Event draw.dt ini otomatis menerapkan ulang label dari cache begitu
+        // DataTables mengganti isi DOM (pindah halaman, cari, atau urutkan),
+        // TANPA perlu panggil API lagi tiap pindah halaman (cukup dari cache).
+        dt.off('draw.dt').on('draw.dt', applyFingerprintLabels_);
         markEnrolledFingerprints_();
       }
     });
   }
 
-  // Tandai baris mana yang sudah punya sidik jari terdaftar (tombol jadi hijau +
-  // teks "Terdaftar") vs yang belum ("Daftarkan"). Dipisah dari loadSantriTable
-  // supaya juga bisa dipanggil ulang sendiri setelah enroll/hapus dari modal,
-  // tanpa perlu reload seluruh tabel santri.
+  // Cache hasil terakhir dari getFingerprintNisList, supaya pindah halaman tabel
+  // (lihat draw.dt di atas) tidak perlu panggil API lagi tiap kali - cukup
+  // terapkan ulang dari sini.
+  var fingerprintEnrolledSet_ = {};
+
+  function applyFingerprintLabels_() {
+    $('.fingerprint-cell-btn').each(function() {
+      var nis = $(this).attr('data-nis'); // .attr(), bukan .data() - lihat catatan di handler klik di atas
+      var enrolled = !!fingerprintEnrolledSet_[nis];
+      $(this).toggleClass('btn-outline-secondary', !enrolled)
+        .toggleClass('btn-outline-emerald border-emerald text-emerald', enrolled)
+        .find('.fp-status-text').text(enrolled ? 'Terdaftar' : 'Daftarkan');
+    });
+  }
+
+  // Ambil ulang daftar NIS yang sudah punya sidik jari dari server, lalu terapkan
+  // ke tombol yang SEDANG tampil di halaman tabel saat ini. Dipanggil saat tabel
+  // pertama kali dimuat, dan sesudah enroll/hapus dari modal supaya status-nya
+  // langsung ter-update tanpa perlu reload seluruh tabel santri.
   function markEnrolledFingerprints_() {
     callApi('getFingerprintNisList', {}, function(res) {
       if (!res || !res.success) return;
-      var enrolledSet = {};
-      (res.data || []).forEach(function(nis) { enrolledSet[nis] = true; });
-      $('.fingerprint-cell-btn').each(function() {
-        var nis = $(this).attr('data-nis'); // .attr(), bukan .data() - lihat catatan di handler klik di atas
-        var enrolled = !!enrolledSet[nis];
-        $(this).toggleClass('btn-outline-secondary', !enrolled)
-          .toggleClass('btn-outline-emerald border-emerald text-emerald', enrolled)
-          .find('.fp-status-text').text(enrolled ? 'Terdaftar' : 'Daftarkan');
-      });
+      fingerprintEnrolledSet_ = {};
+      (res.data || []).forEach(function(nis) { fingerprintEnrolledSet_[nis] = true; });
+      applyFingerprintLabels_();
     });
   }
 
